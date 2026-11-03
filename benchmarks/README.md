@@ -49,6 +49,32 @@
 
 当前脚本按顺序逐个处理请求，属于闭环串行测试。汇总吞吐不是在线服务 QPS，而是后续调度器优化的参考基线。
 
+## 复用 Notebook 中已经加载的模型
+
+如果 Notebook 中已经存在 `model` 和 `tokenizer`，不要再使用 `!python benchmarks/run_baseline.py`，因为那会启动新的 Python 进程并重新加载一份模型。改为在 Notebook 当前进程中导入 `run_benchmark`：
+
+```python
+import sys
+
+sys.path.insert(0, "/kaggle/working/deepinfer-lite")
+from benchmarks.run_baseline import run_benchmark
+
+result = run_benchmark(
+    model=model,
+    tokenizer=tokenizer,
+    model_dir="/kaggle/input/datasets/yhw1027/qwen3-0-6b-model/Qwen3-0.6B",
+    output_dir="/kaggle/working/day2_loaded_model",
+    input_tokens=32,
+    max_new_tokens=16,
+    warmup=1,
+    num_requests=2,
+    device="cuda:0",
+    seed=42,
+)
+```
+
+这个调用不会执行 `from_pretrained()`，而是复用当前 Notebook 中的 `model` 和 `tokenizer`。`model_dir` 只会写入结果元数据，便于之后追溯模型来源；即使不传也可以设置为 `None`。
+
 ## 指标定义
 
 - **TTFT（首 Token 延迟）**：Prefill 开始到生成第一个 token 的时间；

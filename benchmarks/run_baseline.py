@@ -192,6 +192,106 @@ def summarize(results: list[RequestResult], total_wall_s: float) -> dict[str, An
     }
 
 
+def write_results(
+    output_dir: str | Path,
+    metadata: dict[str, Any],
+    summary: dict[str, Any],
+    results: list[RequestResult],
+) -> Path:
+    """Write benchmark metadata, aggregate metrics and raw request data."""
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    (output_path / "metadata.json").write_text(
+        json.dumps(metadata, indent=2, default=str), encoding="utf-8"
+    )
+    (output_path / "summary.json").write_text(
+        json.dumps(summary, indent=2), encoding="utf-8"
+    )
+    (output_path / "requests.json").write_text(
+        json.dumps([asdict(item) for item in results], indent=2), encoding="utf-8"
+    )
+    with (output_path / "requests.csv").open("w", newline="", encoding="utf-8") as file:
+        writer = csv.DictWriter(file, fieldnames=list(asdict(results[0]).keys()))
+        writer.writeheader()
+        writer.writerows(asdict(item) for item in results)
+    return output_path
+
+
+def run_benchmark(
+    model: Any,
+    tokenizer: Any,
+    *,
+    output_dir: str | Path,
+    input_tokens: int = 128,
+    max_new_tokens: int = 128,
+    num_requests: int = 10,
+    warmup: int = 2,
+    device: str = "cuda:0",
+    seed: int = 42,
+    model_dir: str | None = None,
+) -> dict[str, Any]:
+    """Run the baseline using an already loaded model and tokenizer.
+
+    This is the Notebook-friendly API. It never calls ``from_pretrained`` and
+    therefore reuses the model already held by the current Python process.
+    The command-line entry point below remains available for a fresh process.
+    """
+    if max_new_tokens < 1 or num_requests < 1 or warmup < 0:
+        raise ValueError("max_new_tokens and num_requests must be >= 1; warmup must be >= 0")
+    if not torch.cuda.is_available() and device.startswith("cuda"):
+        raise RuntimeError("CUDA is unavailable; choose device='cpu' for a smoke test")
+
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    model = model.to(device).eval()
+    prompt_ids = build_fixed_prompt(tokenizer, input_tokens)
+
+    print(
+        f"reusing loaded model device={device} input_tokens={input_tokens} "
+        f"max_new_tokens={max_new_tokens} requests={num_requests}"
+    )
+    for warmup_id in range(warmup):
+        run_request(model, prompt_ids, max_new_tokens, device, -warmup_id - 1)
+        print(f"warmup {warmup_id + 1}/{warmup} complete")
+
+    cuda_sync(device)
+    benchmark_start = time.perf_counter()
+    results = [
+        run_request(model, prompt_ids, max_new_tokens, device, request_id)
+        for request_id in range(num_requests)
+    ]
+    cuda_sync(device)
+    total_wall_s = time.perf_counter() - benchmark_start
+
+    metadata = {
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "python": platform.python_version(),
+        "torch": torch.__version__,
+        "torch_cuda": torch.version.cuda,
+        "transformers": __import__("transformers").__version__,
+        "model_dir": model_dir,
+        "model_loaded_before_benchmark": True,
+        "device": device,
+        "device_name": torch.cuda.get_device_name(device) if device.startswith("cuda") else "cpu",
+        "dtype": str(next(model.parameters()).dtype),
+        "seed": seed,
+        "sampling": {"method": "greedy", "do_sample": False, "temperature": 0.0, "top_p": 1.0},
+        "workload": {
+            "input_tokens": input_tokens,
+            "max_new_tokens": max_new_tokens,
+            "warmup": warmup,
+            "num_requests": num_requests,
+            "mode": "closed_loop_serial",
+        },
+    }
+    summary = summarize(results, total_wall_s)
+    output_path = write_results(output_dir, metadata, summary, results)
+    print(json.dumps(summary, indent=2))
+    print(f"results written to {output_path}")
+    return {"metadata": metadata, "summary": summary, "results": results}
+
+
 def main() -> None:
     args = parse_args()
     if args.max_new_tokens < 1 or args.num_requests < 1 or args.warmup < 0:
