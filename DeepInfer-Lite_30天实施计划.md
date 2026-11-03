@@ -645,8 +645,9 @@ result = run_benchmark(
 - [x] 支持复用 Notebook 当前进程中加载的模型；
 - [x] 完成 32 输入 / 16 输出、2 个请求的 smoke benchmark；
 - [x] 完成输入长度 128、512、2048 tokens 的首轮实测；
-- [ ] 每种 workload 再完成两个独立 trial，估算运行波动；
-- [ ] 下载或持久化三组原始 benchmark 结果。
+- [x] 每种 workload 完成三个独立 trial，并生成汇总 CSV；
+- [x] 下载并持久化 `day2_complete_results` 汇总结果；
+- [ ] 补齐每个 trial 的逐请求 `requests.json` 和 `requests.csv` 原始归档。
 
 Smoke benchmark 配置为 32 个输入 tokens、最多生成 16 个 tokens、warmup 1 次、正式请求 2 个。汇总吞吐约 20.21 tokens/s、TTFT mean 56.63 ms、TPOT mean 48.95 ms/token、E2E mean 790.83 ms、峰值 allocated 显存 1161.22 MiB。结果保存于 `/kaggle/working/day2_loaded_model`。该小样本只用于确认 benchmark 函数能执行，不纳入正式 workload 对比。
 
@@ -674,7 +675,29 @@ Smoke benchmark 配置为 32 个输入 tokens、最多生成 16 个 tokens、war
 4. 峰值显存随输入长度上升。allocated/reserved 包含模型、KV Cache、临时 Tensor 和 PyTorch allocator 行为，不能解释为 KV Cache 单独占用。
 5. 本脚本采用串行 closed-loop 请求。汇总吞吐不是服务 QPS；这些数据也不足以代表在线并发 P99。
 
-这是每种配置各一次的首轮数据，足以帮助定位后续实验重点，但尚不能声称结果稳定。重复 trial 应使用独立目录，例如 `day2_short_trial2`、`day2_short_trial3`，不可覆盖首轮原始结果。每组至少三次后再计算均值、标准差和相对波动。
+首轮数据之后已完成每种 workload 的两个重复 trial，三次 trial 汇总保存在：
+
+```text
+C:\Users\86176\Desktop\AI Infra\day2_complete_results\day2_all_trials.csv
+```
+
+该 CSV 包含 short、medium、long 各 3 次 trial。以下统计使用样本标准差（`n-1`）和相对标准差 `std / mean`：
+
+| workload | 吞吐 mean | 吞吐 std | 吞吐相对 std | TTFT mean | TTFT 相对 std | TPOT mean | E2E mean | allocated 显存 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| short | 24.103 tokens/s | 0.080 | 0.33% | 46.559 ms | 1.05% | 41.445 ms/token | 5310.115 ms | 1219 MiB |
+| medium | 23.931 tokens/s | 0.112 | 0.47% | 83.215 ms | 4.69% | 41.456 ms/token | 5348.093 ms | 1397 MiB |
+| long | 20.956 tokens/s | 0.121 | 0.58% | 811.707 ms | 1.77% | 41.699 ms/token | 6107.514 ms | 2062 MiB |
+
+重复 trial 的结果表明：
+
+1. 三组吞吐相对标准差均小于 0.6%，串行 closed-loop 基线的吞吐较稳定；
+2. TPOT mean 均约 41.4～41.7 ms/token，输入长度变化没有造成明显 Decode 波动；
+3. TTFT 随输入长度从 128 增至 2048 tokens 明显增加，long 的 mean 约 811.7 ms，是后续 Prefill 优化的主要观察点；
+4. allocated 显存三次完全一致，分别约为 1219、1397、2062 MiB；
+5. short 和 medium 的 reserved 显存分别出现 1252/2768 MiB、1470/2768 MiB 的变化，主要反映 PyTorch CUDA allocator 的缓存和复用状态，不应直接解释为 KV Cache 需求变化；long 的 reserved 显存稳定在 2768 MiB。
+
+本次结果可用于第 2 天基线结论，但仍是单请求串行执行，不能代表连续批处理或在线服务 QPS/P99。后续 Paged KV Cache 和调度器实验需保持相同模型、GPU、输入长度、输出长度和采样设置，才能公平对比。
 
 #### 保存 Kaggle 结果
 
@@ -697,7 +720,7 @@ requests.json
 requests.csv
 ```
 
-第 2 天进入下一阶段前的退出条件：三种 workload 各完成至少三个 trial、原始结果已持久化、版本和设备信息可追溯。目前首轮数据已完成，重复 trial 和持久化尚待完成。
+第 2 天进入下一阶段前的退出条件：三种 workload 各完成至少三个 trial、汇总 CSV 已保存、版本和设备信息可追溯，已满足。当前下载的 `day2_complete_results` 只包含汇总 CSV，逐请求原始 JSON/CSV 尚未归档；此项作为补档任务，不影响进入第 3 天。
 
 ### 第 3 天：实现模型 Runner 骨架
 
