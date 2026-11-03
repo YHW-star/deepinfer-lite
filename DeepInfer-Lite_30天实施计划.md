@@ -584,91 +584,75 @@ display(FileLink(zip_path))
 
 验收：相同配置连续运行 3 次，结果波动可解释。
 
-#### 第 2 天实现入口
+#### 第 2 天实际环境记录（Kaggle，2026-11-03）
 
-当前仓库已经提供第一版串行 Reference Benchmark：
+本日使用第 1 天保存的 Kaggle 双 T4 环境和已挂载的 Qwen3-0.6B Dataset。模型已在 Notebook 当前 Python Kernel 中加载，因此基准函数复用现有 `model` 与 `tokenizer`，没有为每个 workload 再加载模型副本。
+
+| 项目 | 实际配置 |
+|---|---|
+| Python | 3.13.15 |
+| PyTorch | 2.11.0+cu128 |
+| PyTorch 编译 CUDA | 12.8 |
+| Transformers | 5.16.1 |
+| GPU | Tesla T4 × 2，每张约 14.56 GiB |
+| 推理设备 | `cuda:0` |
+| 模型 | Qwen/Qwen3-0.6B |
+| 模型 Dataset 路径 | `/kaggle/input/datasets/yhw1027/qwen3-0-6b-model/Qwen3-0.6B` |
+| 权重 dtype | FP16 |
+| 解码方式 | Greedy，`do_sample=False` |
+| Thinking 模式 | 关闭 |
+| 随机种子 | 42 |
+
+#### 第 2 天实现和运行方式
+
+仓库中的统一基线实现位于：
 
 ```text
 benchmarks/run_baseline.py
 benchmarks/README.md
 ```
 
-它刻意一次只处理一个请求，作为后续 Paged KV Cache 和 Continuous Batching 的基线。当前版本使用手动 greedy Decode：先对完整输入执行一次 Prefill，随后每次只输入一个 token，并显式传递 `past_key_values`。因此可以区分 TTFT 和 Decode 阶段 TPOT，而不是只得到 `generate()` 的总时间。
+脚本采用串行单请求 Reference Benchmark：对完整 prompt 执行一次 Prefill，后续每步只输入一个新 token，并通过 `past_key_values` 继续 Decode。它记录 TTFT、TPOT、E2E、吞吐和 CUDA 峰值显存，并将配置与原始逐请求数据写入 JSON/CSV。
 
-在 Kaggle 挂载模型 Dataset 后，先运行小规模 smoke benchmark：
-
-```python
-!python benchmarks/run_baseline.py \
-  --model-dir /kaggle/input/qwen3-0-6b-model \
-  --output-dir /kaggle/working/day2_smoke \
-  --input-tokens 32 \
-  --max-new-tokens 16 \
-  --warmup 1 \
-  --num-requests 2 \
-  --device cuda:0 \
-  --seed 42
-```
-
-确认 smoke benchmark 成功后，运行第一组正式基线：
+本次使用 Notebook 内已加载模型的调用方式：
 
 ```python
-!python benchmarks/run_baseline.py \
-  --model-dir /kaggle/input/qwen3-0-6b-model \
-  --output-dir /kaggle/working/day2_baseline_128_128 \
-  --input-tokens 128 \
-  --max-new-tokens 128 \
-  --warmup 2 \
-  --num-requests 10 \
-  --device cuda:0 \
-  --seed 42
+from benchmarks.run_baseline import run_benchmark
+
+result = run_benchmark(
+    model=model,
+    tokenizer=tokenizer,
+    model_dir="/kaggle/input/datasets/yhw1027/qwen3-0-6b-model/Qwen3-0.6B",
+    output_dir="/kaggle/working/day2_short",
+    input_tokens=128,
+    max_new_tokens=128,
+    warmup=2,
+    num_requests=10,
+    device="cuda:0",
+    seed=42,
+)
 ```
 
-如果 Dataset 中多了一层目录，`--model-dir` 必须指向包含 `config.json` 的目录，例如：
+`run_benchmark` 接收当前 Kernel 中已经加载的 `model` 和 `tokenizer`，不会执行 `from_pretrained()`。注意：如果 Kernel 重启，变量会清空，需先从 Dataset 路径重新加载模型；模型文件仍由 Kaggle Dataset 提供，不需要重新从 Hugging Face 下载。
 
-```text
-/kaggle/input/qwen3-0-6b-model/Qwen3-0.6B
-```
+#### 第 2 天已完成事项
 
-每次运行会生成：
+- [x] 基线脚本支持固定输入 token 数、输出 token 数、请求数和 warmup 次数；
+- [x] 固定 greedy decoding、`seed=42` 和 thinking 关闭；
+- [x] 实现 Prefill 后逐 token Decode，并记录 TTFT、TPOT、E2E；
+- [x] 记录峰值 allocated/reserved CUDA 显存；
+- [x] 输出 `metadata.json`、`summary.json`、`requests.json` 和 `requests.csv`；
+- [x] 支持复用 Notebook 当前进程中加载的模型；
+- [x] 完成 32 输入 / 16 输出、2 个请求的 smoke benchmark；
+- [x] 完成输入长度 128、512、2048 tokens 的首轮实测；
+- [ ] 每种 workload 再完成两个独立 trial，估算运行波动；
+- [ ] 下载或持久化三组原始 benchmark 结果。
 
-```text
-metadata.json   # GPU、软件版本、模型、seed 和 workload
-summary.json    # 汇总指标
-requests.json   # 每个请求的原始结果
-requests.csv    # 便于后续绘图和表格处理
-```
+Smoke benchmark 配置为 32 个输入 tokens、最多生成 16 个 tokens、warmup 1 次、正式请求 2 个。汇总吞吐约 20.21 tokens/s、TTFT mean 56.63 ms、TPOT mean 48.95 ms/token、E2E mean 790.83 ms、峰值 allocated 显存 1161.22 MiB。结果保存于 `/kaggle/working/day2_loaded_model`。该小样本只用于确认 benchmark 函数能执行，不纳入正式 workload 对比。
 
-Day 2 至少运行以下三个 workload，每个 workload 连续运行 3 个独立 trial：
+#### 第 2 天首轮实测结果
 
-| 配置名 | 输入 token | 输出 token | 请求数 |
-|---|---:|---:|---:|
-| short | 128 | 128 | 10 |
-| medium | 512 | 128 | 10 |
-| long | 2048 | 128 | 10 |
-
-示例：
-
-```python
-!python benchmarks/run_baseline.py --model-dir /kaggle/input/qwen3-0-6b-model --output-dir /kaggle/working/day2_short_trial1 --input-tokens 128 --max-new-tokens 128 --warmup 2 --num-requests 10 --device cuda:0 --seed 42
-!python benchmarks/run_baseline.py --model-dir /kaggle/input/qwen3-0-6b-model --output-dir /kaggle/working/day2_medium_trial1 --input-tokens 512 --max-new-tokens 128 --warmup 2 --num-requests 10 --device cuda:0 --seed 42
-!python benchmarks/run_baseline.py --model-dir /kaggle/input/qwen3-0-6b-model --output-dir /kaggle/working/day2_long_trial1 --input-tokens 2048 --max-new-tokens 128 --warmup 2 --num-requests 10 --device cuda:0 --seed 42
-```
-
-注意：脚本为了保证不同版本可比，会在遇到 EOS 后继续 Decode 到 `max_new_tokens`；`eos_hit` 字段只记录是否命中过 EOS。当前结果是 closed-loop 串行吞吐，不是在线服务 QPS。所有 trial 必须保存原始 JSON/CSV，不能只保留手工抄录的平均值。
-
-#### 第 2 天退出条件
-
-- [ ] smoke benchmark 能在 Kaggle 的 `cuda:0` 完成；
-- [ ] 三种输入长度都能完成 3 个 trial；
-- [ ] 每个结果目录包含 metadata、summary、requests JSON 和 CSV；
-- [ ] 同一 workload 的三次 trial 指标和 GPU 状态可解释；
-- [ ] 固定 `seed=42`、`do_sample=False`、`enable_thinking=False`；
-- [ ] 记录 Prefill/Decode 测时边界，确认没有漏掉 CUDA 同步；
-- [ ] 下载或保存 `/kaggle/working/day2_*` 结果，进入第 3 天前不覆盖。
-
-#### 第 2 天首轮实测结果（Kaggle，2026-11-03）
-
-已使用当前 Notebook 中加载的 Qwen3-0.6B FP16 模型，在 `cuda:0` 上完成三组首轮 baseline。每组配置为 warmup 2 次、正式请求 10 个、每个请求生成 128 tokens、greedy decoding、`seed=42`。结果目录分别为：
+三种 workload 均使用 warmup 2 次、正式请求 10 个、每个请求生成 128 tokens、greedy decoding、`seed=42`，结果保存于：
 
 ```text
 /kaggle/working/day2_short
@@ -682,28 +666,38 @@ Day 2 至少运行以下三个 workload，每个 workload 连续运行 3 个独�
 | medium | 512 | 21.071 | 85.21 ms | 86.67 ms | 47.16 ms | 6073.91 ms | 1397 MiB | 1470 MiB |
 | long | 2048 | 18.948 | 787.56 ms | 853.74 ms | 46.98 ms | 6754.42 ms | 2062 MiB | 2768 MiB |
 
-本轮结果的初步解释：
+#### 初步观察
 
-1. 128、512 输入下 TPOT 几乎不变，约 47 ms/token，说明 Decode 阶段的单 token 计算是稳定的；
-2. 输入从 128 增到 2048 时，TTFT 从约 53 ms 增至约 788 ms，长输入的主要成本发生在 Prefill；
-3. 2048 输入下吞吐下降到约 18.95 tokens/s，说明串行 baseline 的总吞吐已经受到长 Prefill 影响；
-4. 峰值显存随输入长度增加，从 1219 MiB 增至 2062 MiB allocated、2768 MiB reserved，但这包含模型、KV Cache、临时 Tensor 和 PyTorch allocator，不能直接当作 KV Cache 单独占用；
-5. E2E mean 约等于 10 个串行请求的总耗时，因此这是 serial closed-loop baseline，不能解读为并发服务的 P99。
+1. 输入长度从 128 增至 512 时，TTFT 从 52.67 ms 增至 85.21 ms；增至 2048 时达到 787.56 ms，长输入的主要新增耗时出现在 Prefill。
+2. 三组 TPOT mean 都约为 47 ms/token，说明本轮测试中 Decode 每 token 延迟对输入长度变化不敏感。
+3. 串行吞吐从约 21.17 tokens/s 降至 18.95 tokens/s，长 Prefill 拉低了整体生成吞吐。
+4. 峰值显存随输入长度上升。allocated/reserved 包含模型、KV Cache、临时 Tensor 和 PyTorch allocator 行为，不能解释为 KV Cache 单独占用。
+5. 本脚本采用串行 closed-loop 请求。汇总吞吐不是服务 QPS；这些数据也不足以代表在线并发 P99。
 
-这三组是每个 workload 的首轮 trial，还不能用于正式报告中的方差或稳定性结论。进入第 3 天前，至少将每组结果各重复 2 次，保存为 `day2_short_trial2`、`day2_short_trial3` 等独立目录，并对 TTFT、TPOT、吞吐和峰值显存计算均值、标准差和相对波动。
+这是每种配置各一次的首轮数据，足以帮助定位后续实验重点，但尚不能声称结果稳定。重复 trial 应使用独立目录，例如 `day2_short_trial2`、`day2_short_trial3`，不可覆盖首轮原始结果。每组至少三次后再计算均值、标准差和相对波动。
 
-建议先保存结果，不要覆盖原始目录：
+#### 保存 Kaggle 结果
+
+在 Kaggle 中可将结果目录打包，下载或保存为 Notebook Output：
 
 ```python
 import shutil
 
 for name in ["short", "medium", "long"]:
-    shutil.make_archive(
-        f"/kaggle/working/day2_{name}",
-        "zip",
-        root_dir=f"/kaggle/working/day2_{name}",
-    )
+    source = f"/kaggle/working/day2_{name}"
+    shutil.make_archive(source, "zip", root_dir=source)
 ```
+
+每个结果目录应包含：
+
+```text
+metadata.json
+summary.json
+requests.json
+requests.csv
+```
+
+第 2 天进入下一阶段前的退出条件：三种 workload 各完成至少三个 trial、原始结果已持久化、版本和设备信息可追溯。目前首轮数据已完成，重复 trial 和持久化尚待完成。
 
 ### 第 3 天：实现模型 Runner 骨架
 
