@@ -1,13 +1,10 @@
-# Day 2 baseline benchmark
+# 第 2 天：推理基线测试
 
-`run_baseline.py` is the first reproducible reference benchmark. It runs one
-request at a time with fixed token lengths and greedy decoding. It is intended
-to establish a baseline before implementing Paged KV Cache or Continuous
-Batching.
+`run_baseline.py` 是第一版可复现的参考测试脚本。它使用固定输入和输出 token 数、贪心解码，并按顺序逐个处理请求。该脚本为后续分页 KV Cache 和连续批处理实现建立对照基线。
 
-## Run in Kaggle
+## 在 Kaggle 中运行
 
-After mounting the Qwen3 model Dataset and restoring the model path, run:
+先挂载包含 Qwen3 模型文件的 Dataset，并确认模型路径后运行：
 
 ```python
 !python benchmarks/run_baseline.py \
@@ -21,14 +18,13 @@ After mounting the Qwen3 model Dataset and restoring the model path, run:
   --seed 42
 ```
 
-If the Dataset contains an extra top-level directory, use the path that
-contains `config.json`, for example:
+如果 Dataset 中多了一层目录，`--model-dir` 应指向包含 `config.json` 的目录，例如：
 
 ```text
 /kaggle/input/qwen3-0-6b-model/Qwen3-0.6B
 ```
 
-Run a small smoke benchmark first:
+正式测试前先运行小规模 smoke benchmark：
 
 ```python
 !python benchmarks/run_baseline.py \
@@ -37,30 +33,28 @@ Run a small smoke benchmark first:
   --input-tokens 32 \
   --max-new-tokens 16 \
   --warmup 1 \
-  --num-requests 2
+  --num-requests 2 \
+  --device cuda:0 \
+  --seed 42
 ```
 
-## Output files
+## 输出文件
 
-Each run creates:
+每次运行会生成以下文件：
 
-- `metadata.json`: model, GPU, versions, seed and workload;
-- `summary.json`: aggregate throughput, mean/P50/P99 TTFT, TPOT, E2E and peak memory;
-- `requests.json`: raw per-request measurements;
-- `requests.csv`: raw measurements for plotting.
+- `metadata.json`：模型、GPU、软件版本、随机种子和 workload 配置；
+- `summary.json`：吞吐，以及 TTFT、TPOT、E2E 的平均值、P50、P99 和峰值显存；
+- `requests.json`：逐请求原始测量值；
+- `requests.csv`：用于绘图和表格分析的原始数据。
 
-The current benchmark uses serial closed-loop requests. Its aggregate
-throughput is not an online-service QPS result; it is the baseline against
-which the later scheduler is compared.
+当前脚本按顺序逐个处理请求，属于闭环串行测试。汇总吞吐不是在线服务 QPS，而是后续调度器优化的参考基线。
 
-## Metric definitions
+## 指标定义
 
-- **TTFT**: time from the start of Prefill to the first generated token;
-- **TPOT**: average time per generated token after the first token;
-- **E2E**: time from Prefill start until the final generated token;
-- **Throughput**: generated tokens divided by total benchmark wall time;
-- **Peak memory**: PyTorch peak allocated and reserved CUDA memory.
+- **TTFT（首 Token 延迟）**：Prefill 开始到生成第一个 token 的时间；
+- **TPOT（单 Token 解码延迟）**：首 token 之后，每个生成 token 的平均耗时；
+- **E2E（端到端延迟）**：Prefill 开始到最后一个 token 生成完成的总时间；
+- **吞吐**：benchmark 总耗时内生成的 token 数除以总时间；
+- **峰值显存**：PyTorch 统计到的 CUDA 峰值已分配显存和峰值预留显存。
 
-The script continues decoding after EOS so every request has exactly
-`max_new_tokens` generated tokens. The `eos_hit` field records whether EOS was
-encountered; this keeps different runs comparable while retaining the signal.
+为保证请求间可比，脚本遇到 EOS 后仍会继续 Decode，直到达到 `max_new_tokens`。`eos_hit` 字段记录是否遇到 EOS。
