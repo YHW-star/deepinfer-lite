@@ -24,7 +24,7 @@
 - [x] Qwen3-0.6B FP16 模型加载和生成验证
 - [x] 环境快照与模型配置记录
 - [x] 统一 benchmark 脚本骨架
-- [ ] 在 Kaggle 完成统一 benchmark 实测
+- [x] 在 Kaggle 完成首轮统一 benchmark 实测（待重复 trial）
 - [ ] 分页 KV Cache
 - [ ] 连续批处理
 - [ ] 前缀缓存

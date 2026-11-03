@@ -666,6 +666,45 @@ Day 2 至少运行以下三个 workload，每个 workload 连续运行 3 个独�
 - [ ] 记录 Prefill/Decode 测时边界，确认没有漏掉 CUDA 同步；
 - [ ] 下载或保存 `/kaggle/working/day2_*` 结果，进入第 3 天前不覆盖。
 
+#### 第 2 天首轮实测结果（Kaggle，2026-11-03）
+
+已使用当前 Notebook 中加载的 Qwen3-0.6B FP16 模型，在 `cuda:0` 上完成三组首轮 baseline。每组配置为 warmup 2 次、正式请求 10 个、每个请求生成 128 tokens、greedy decoding、`seed=42`。结果目录分别为：
+
+```text
+/kaggle/working/day2_short
+/kaggle/working/day2_medium
+/kaggle/working/day2_long
+```
+
+| workload | 输入 tokens | 吞吐 tokens/s | TTFT mean | TTFT P99 | TPOT mean | E2E mean | 峰值 allocated | 峰值 reserved |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| short | 128 | 21.174 | 52.67 ms | 55.01 ms | 47.18 ms | 6044.42 ms | 1219 MiB | 1252 MiB |
+| medium | 512 | 21.071 | 85.21 ms | 86.67 ms | 47.16 ms | 6073.91 ms | 1397 MiB | 1470 MiB |
+| long | 2048 | 18.948 | 787.56 ms | 853.74 ms | 46.98 ms | 6754.42 ms | 2062 MiB | 2768 MiB |
+
+本轮结果的初步解释：
+
+1. 128、512 输入下 TPOT 几乎不变，约 47 ms/token，说明 Decode 阶段的单 token 计算是稳定的；
+2. 输入从 128 增到 2048 时，TTFT 从约 53 ms 增至约 788 ms，长输入的主要成本发生在 Prefill；
+3. 2048 输入下吞吐下降到约 18.95 tokens/s，说明串行 baseline 的总吞吐已经受到长 Prefill 影响；
+4. 峰值显存随输入长度增加，从 1219 MiB 增至 2062 MiB allocated、2768 MiB reserved，但这包含模型、KV Cache、临时 Tensor 和 PyTorch allocator，不能直接当作 KV Cache 单独占用；
+5. E2E mean 约等于 10 个串行请求的总耗时，因此这是 serial closed-loop baseline，不能解读为并发服务的 P99。
+
+这三组是每个 workload 的首轮 trial，还不能用于正式报告中的方差或稳定性结论。进入第 3 天前，至少将每组结果各重复 2 次，保存为 `day2_short_trial2`、`day2_short_trial3` 等独立目录，并对 TTFT、TPOT、吞吐和峰值显存计算均值、标准差和相对波动。
+
+建议先保存结果，不要覆盖原始目录：
+
+```python
+import shutil
+
+for name in ["short", "medium", "long"]:
+    shutil.make_archive(
+        f"/kaggle/working/day2_{name}",
+        "zip",
+        root_dir=f"/kaggle/working/day2_{name}",
+    )
+```
+
 ### 第 3 天：实现模型 Runner 骨架
 
 任务：
