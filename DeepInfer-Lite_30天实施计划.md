@@ -584,6 +584,88 @@ display(FileLink(zip_path))
 
 验收：相同配置连续运行 3 次，结果波动可解释。
 
+#### 第 2 天实现入口
+
+当前仓库已经提供第一版串行 Reference Benchmark：
+
+```text
+benchmarks/run_baseline.py
+benchmarks/README.md
+```
+
+它刻意一次只处理一个请求，作为后续 Paged KV Cache 和 Continuous Batching 的基线。当前版本使用手动 greedy Decode：先对完整输入执行一次 Prefill，随后每次只输入一个 token，并显式传递 `past_key_values`。因此可以区分 TTFT 和 Decode 阶段 TPOT，而不是只得到 `generate()` 的总时间。
+
+在 Kaggle 挂载模型 Dataset 后，先运行小规模 smoke benchmark：
+
+```python
+!python benchmarks/run_baseline.py \
+  --model-dir /kaggle/input/qwen3-0-6b-model \
+  --output-dir /kaggle/working/day2_smoke \
+  --input-tokens 32 \
+  --max-new-tokens 16 \
+  --warmup 1 \
+  --num-requests 2 \
+  --device cuda:0 \
+  --seed 42
+```
+
+确认 smoke benchmark 成功后，运行第一组正式基线：
+
+```python
+!python benchmarks/run_baseline.py \
+  --model-dir /kaggle/input/qwen3-0-6b-model \
+  --output-dir /kaggle/working/day2_baseline_128_128 \
+  --input-tokens 128 \
+  --max-new-tokens 128 \
+  --warmup 2 \
+  --num-requests 10 \
+  --device cuda:0 \
+  --seed 42
+```
+
+如果 Dataset 中多了一层目录，`--model-dir` 必须指向包含 `config.json` 的目录，例如：
+
+```text
+/kaggle/input/qwen3-0-6b-model/Qwen3-0.6B
+```
+
+每次运行会生成：
+
+```text
+metadata.json   # GPU、软件版本、模型、seed 和 workload
+summary.json    # 汇总指标
+requests.json   # 每个请求的原始结果
+requests.csv    # 便于后续绘图和表格处理
+```
+
+Day 2 至少运行以下三个 workload，每个 workload 连续运行 3 个独立 trial：
+
+| 配置名 | 输入 token | 输出 token | 请求数 |
+|---|---:|---:|---:|
+| short | 128 | 128 | 10 |
+| medium | 512 | 128 | 10 |
+| long | 2048 | 128 | 10 |
+
+示例：
+
+```python
+!python benchmarks/run_baseline.py --model-dir /kaggle/input/qwen3-0-6b-model --output-dir /kaggle/working/day2_short_trial1 --input-tokens 128 --max-new-tokens 128 --warmup 2 --num-requests 10 --device cuda:0 --seed 42
+!python benchmarks/run_baseline.py --model-dir /kaggle/input/qwen3-0-6b-model --output-dir /kaggle/working/day2_medium_trial1 --input-tokens 512 --max-new-tokens 128 --warmup 2 --num-requests 10 --device cuda:0 --seed 42
+!python benchmarks/run_baseline.py --model-dir /kaggle/input/qwen3-0-6b-model --output-dir /kaggle/working/day2_long_trial1 --input-tokens 2048 --max-new-tokens 128 --warmup 2 --num-requests 10 --device cuda:0 --seed 42
+```
+
+注意：脚本为了保证不同版本可比，会在遇到 EOS 后继续 Decode 到 `max_new_tokens`；`eos_hit` 字段只记录是否命中过 EOS。当前结果是 closed-loop 串行吞吐，不是在线服务 QPS。所有 trial 必须保存原始 JSON/CSV，不能只保留手工抄录的平均值。
+
+#### 第 2 天退出条件
+
+- [ ] smoke benchmark 能在 Kaggle 的 `cuda:0` 完成；
+- [ ] 三种输入长度都能完成 3 个 trial；
+- [ ] 每个结果目录包含 metadata、summary、requests JSON 和 CSV；
+- [ ] 同一 workload 的三次 trial 指标和 GPU 状态可解释；
+- [ ] 固定 `seed=42`、`do_sample=False`、`enable_thinking=False`；
+- [ ] 记录 Prefill/Decode 测时边界，确认没有漏掉 CUDA 同步；
+- [ ] 下载或保存 `/kaggle/working/day2_*` 结果，进入第 3 天前不覆盖。
+
 ### 第 3 天：实现模型 Runner 骨架
 
 任务：
