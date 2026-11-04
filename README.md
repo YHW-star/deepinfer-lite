@@ -29,6 +29,8 @@
 - [x] 在 Kaggle T4 上通过 32 步 Runner smoke 验收
 - [x] 第 4 天朴素 KV Cache、贪心生成和一致性验收脚本
 - [x] 在 Kaggle T4 上通过第 4 天 KV Cache 一致性验收
+- [x] 第 5 天 KV Cache 正确性测试文件
+- [ ] 在 Kaggle T4 上运行第 5 天完整测试
 - [ ] 分页 KV Cache
 - [ ] 连续批处理
 - [ ] 前缀缓存
@@ -126,11 +128,24 @@ deepinfer-lite/
 ├─ examples/
 │  ├─ day3_runner_smoke.py  # 32 次 Decode 验收
 │  └─ day4_cache_acceptance.py # 朴素 KV Cache 正确性验收
+├─ tests/
+│  └─ test_kv_correctness.py # 第 5 天正确性测试
 ├─ DeepInfer-Lite_30天实施计划.md
 └─ README.md
 ```
 
 模型权重不提交到 Git 仓库。Kaggle 的模型 Dataset、实验结果和环境快照单独保存。
+
+### 运行 KV Cache 正确性测试
+
+在 Kaggle Notebook 的仓库根目录运行：
+
+```python
+%env PYTHONPATH=/kaggle/working/deepinfer-lite
+!DEEPINFER_MODEL_DIR=/kaggle/input/datasets/yhw1027/qwen3-0-6b-model/Qwen3-0.6B \
+  DEEPINFER_TEST_DEVICE=cuda:0 \
+  pytest -q tests/test_kv_correctness.py
+```
 
 ## 项目计划
 

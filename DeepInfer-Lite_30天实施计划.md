@@ -831,15 +831,35 @@ requests.csv
 
 ### 第 5 天：补充正确性测试
 
+#### 测试文件
+
+产出：`tests/test_kv_correctness.py`。测试默认读取 Kaggle Dataset 中的 Qwen3-0.6B；可用 `DEEPINFER_MODEL_DIR` 和 `DEEPINFER_TEST_DEVICE` 覆盖模型路径和设备。
+
+```python
+%env PYTHONPATH=/kaggle/working/deepinfer-lite
+!DEEPINFER_MODEL_DIR=/kaggle/input/datasets/yhw1027/qwen3-0-6b-model/Qwen3-0.6B \
+  DEEPINFER_TEST_DEVICE=cuda:0 \
+  pytest -q tests/test_kv_correctness.py
+```
+
 测试：
 
 - 输入长度 1、128、512、2048；
 - 输出长度 1、16、128；
 - 单请求和两个请求交错执行；
 - EOS 提前结束；
-- 空闲 Block 和满 Block 边界。
+- 未来分页缓存 block 前、满、后的连续追加边界；
+- 非法追加不会破坏原有 cache 状态。
 
-产出：`tests/test_kv_correctness.py`。
+其中长度矩阵共 12 组，逐 token 对比 Runner 和 Transformers `generate(do_sample=False)` 的完整输出；模型相关测试在没有模型或 CUDA 时会跳过，缓存边界单元测试不依赖 GPU。
+
+#### 完成状态
+
+- [x] 建立长度矩阵和 greedy 输出一致性测试；
+- [x] 建立两个独立请求交错 Decode 测试；
+- [x] 建立 EOS 提前结束测试；
+- [x] 建立连续 KV Cache 的 block 边界和非法追加测试；
+- [ ] 在 Kaggle T4 上运行完整测试并保存测试摘要。
 
 ### 第 6 天：完成基础显存和性能基线
 
