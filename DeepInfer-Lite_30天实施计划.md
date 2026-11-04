@@ -775,14 +775,36 @@ requests.csv
 
 ### 第 4 天：实现朴素 KV Cache
 
-任务：
+#### 实现内容
 
-- 为每个请求分配连续 KV Tensor；
-- 支持追加 token；
-- 实现 greedy sampling；
-- 处理 EOS 和 `max_new_tokens`。
+- `KVCache` 为每个请求保存独立的 `past_key_values`、逻辑序列长度、batch size、设备和 attention mask。
+- 每层 Key/Value 都检查为 `[batch, heads, seq, head_dim]`，Key 与 Value 形状一致，序列维度等于逻辑长度，并且 Tensor 是连续存储；当前底层仍使用 Transformers 返回的连续 KV Tensor。
+- `KVCache.append()` 接收一次 Decode 后的完整 KV 状态，校验长度增加 1 后再更新缓存，形成朴素的连续追加路径。
+- `ModelRunner.generate_greedy()` 使用 logits `argmax` 采样，遇到模型配置中的 EOS 立即停止，并限制最多生成 `max_new_tokens` 个 token。
+- `examples/day4_cache_acceptance.py` 在同一模型和同一输入上分别运行 Transformers `generate(do_sample=False)` 与 Runner 逐 token 生成，比较完整生成 token 序列。
 
-验收：输出与 Transformers `generate` 在 greedy 模式下保持一致。
+#### Kaggle 验收
+
+```python
+%env PYTHONPATH=/kaggle/working/deepinfer-lite
+!python examples/day4_cache_acceptance.py \
+  --model-dir /kaggle/input/datasets/yhw1027/qwen3-0-6b-model/Qwen3-0.6B \
+  --device cuda:0 \
+  --max-new-tokens 32
+```
+
+验收脚本还会输出实际生成 token 数、Decode 调用次数、EOS 状态、最终 cache 长度和 KV Tensor 字节数。
+
+#### 完成状态
+
+- [x] 为单请求保存连续 KV Tensor，并校验形状和长度；
+- [x] 支持 Decode 后追加 KV 状态；
+- [x] 实现 greedy sampling；
+- [x] 处理 EOS 和 `max_new_tokens`；
+- [x] 添加 Transformers `generate` 一致性验收脚本；
+- [ ] 在 Kaggle T4 上完成 Day 4 实际验收并保存 JSON 输出。
+
+验收退出条件：Runner 生成的 token 序列与 Transformers `generate` 在 greedy 模式下完全一致。
 
 ### 第 5 天：补充正确性测试
 
