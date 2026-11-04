@@ -753,9 +753,25 @@ requests.csv
 - [x] Decode 单 token 前向和 cache 回传；
 - [x] 明确 KV Cache handle 的输入输出字段；
 - [x] 添加 32 步 smoke 验收脚本并通过 Python 语法检查；
-- [ ] 在 Kaggle T4 上完成实际模型验收，并保存 JSON 输出。
+- [x] 在 Kaggle Tesla T4 (`cuda:0`) 上完成实际模型验收。
 
-当前本地 Windows 环境没有 PyTorch/CUDA，实际模型运行需在 Kaggle Notebook 完成。GPU 验收通过后再将最后一项勾选，并把输出记录在本节。
+#### 第 3 天 Kaggle 实测结果（2026-11-04）
+
+使用 Qwen3-0.6B FP16，在 `cuda:0` 上运行 `day3_runner_smoke.py --decode-steps 32`，输出如下：
+
+```json
+{
+  "status": "passed",
+  "device": "cuda:0",
+  "prefill_tokens": 8,
+  "decode_calls": 32,
+  "cache_sequence_length": 40,
+  "next_token_id": 30,
+  "dtype": "torch.float16"
+}
+```
+
+验收结论：单请求完成一次 Prefill 和 32 次 Decode，且 `cache_sequence_length = prefill_tokens + decode_calls = 40`，第 3 天退出条件满足。
 
 ### 第 4 天：实现朴素 KV Cache
 
