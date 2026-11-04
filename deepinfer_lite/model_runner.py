@@ -1,4 +1,4 @@
-"""A thin prefill/decode runner around a Transformers causal language model."""
+"""基于 Transformers 因果语言模型封装的轻量 Prefill/Decode Runner。"""
 
 from __future__ import annotations
 
@@ -12,12 +12,11 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 @dataclass
 class KVCache:
-    """Per-request cache handle passed from Prefill into each Decode step.
+    """在 Prefill 和后续每次 Decode 之间传递的单请求缓存句柄。
 
-    ``past_key_values`` is the Transformers cache implementation for now. The
-    runner owns the logical sequence length so callers do not need to depend
-    on a particular Transformers Cache API. A future cache manager can replace
-    this payload while keeping the Prefill/Decode call contract stable.
+    当前 ``past_key_values`` 使用 Transformers 的缓存实现。Runner 自行记录逻辑序列长度，
+    调用方无需依赖某个特定的 Transformers Cache API。后续可替换底层缓存内容，同时保持
+    Prefill/Decode 的调用接口不变。
     """
 
     past_key_values: Any
@@ -29,7 +28,7 @@ class KVCache:
 
 @dataclass
 class PrefillOutput:
-    """Result of processing a complete prompt once."""
+    """完整处理一次提示词后的结果。"""
 
     logits: torch.Tensor
     kv_cache: KVCache
@@ -37,14 +36,14 @@ class PrefillOutput:
 
 @dataclass
 class DecodeOutput:
-    """Result of processing exactly one new token."""
+    """恰好处理一个新 token 后的结果。"""
 
     logits: torch.Tensor
     kv_cache: KVCache
 
 
 class ModelRunner:
-    """Run a model as one full-prompt Prefill followed by one-token Decode."""
+    """以完整提示词 Prefill、随后逐 token Decode 的方式运行模型。"""
 
     def __init__(self, model: Any, tokenizer: Any, device: str | torch.device):
         self.device = torch.device(device)
@@ -60,7 +59,7 @@ class ModelRunner:
         dtype: torch.dtype | None = None,
         local_files_only: bool = False,
     ) -> "ModelRunner":
-        """Load tokenizer and model from a local directory or model ID."""
+        """从本地目录或模型 ID 加载 tokenizer 和模型。"""
         resolved_device = torch.device(device)
         if dtype is None:
             dtype = torch.float16 if resolved_device.type == "cuda" else torch.float32
@@ -79,7 +78,7 @@ class ModelRunner:
         input_ids: torch.Tensor,
         attention_mask: torch.Tensor | None = None,
     ) -> PrefillOutput:
-        """Process all prompt tokens and initialize the request's KV cache."""
+        """处理全部提示词 token，并初始化该请求的 KV Cache。"""
         if input_ids.ndim != 2 or input_ids.shape[1] == 0:
             raise ValueError("input_ids must have shape [batch, non-empty sequence]")
         input_ids = input_ids.to(self.device)
@@ -112,7 +111,7 @@ class ModelRunner:
 
     @torch.inference_mode()
     def decode(self, input_ids: torch.Tensor, kv_cache: KVCache) -> DecodeOutput:
-        """Process exactly one token per batch row and append its KV state."""
+        """每个 batch 行恰好处理一个 token，并将对应的 KV 状态追加到缓存。"""
         if input_ids.ndim != 2 or input_ids.shape[1] != 1:
             raise ValueError("Decode input_ids must have shape [batch, 1]")
         if input_ids.shape[0] != kv_cache.batch_size:

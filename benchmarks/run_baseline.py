@@ -1,7 +1,6 @@
-"""Run a deterministic single-request Qwen3 inference baseline.
+"""运行确定性的单请求 Qwen3 推理基线。
 
-The baseline deliberately runs requests serially. It measures the model path
-that later Paged KV Cache and Continuous Batching implementations must beat.
+基线刻意按顺序执行请求，用于测量后续分页 KV Cache 和连续批处理实现需要超越的模型路径。
 """
 
 from __future__ import annotations
@@ -96,7 +95,7 @@ def run_request(
         torch.cuda.reset_peak_memory_stats(device)
     start = time.perf_counter()
 
-    # Prefill: process the complete prompt once and retain its KV states.
+    # Prefill：完整处理一次提示词，并保留对应的 KV 状态。
     prefill = model(
         input_ids=input_ids,
         attention_mask=attention_mask,
@@ -110,8 +109,8 @@ def run_request(
     generated = [int(next_token.item())]
     eos_hit = is_eos(generated[0], model.config.eos_token_id)
 
-    # Decode: one token per model call. We intentionally continue after EOS so
-    # every benchmark request has exactly max_new_tokens generated tokens.
+    # Decode：每次模型调用只处理一个 token。遇到 EOS 后仍继续生成，确保每个请求都生成
+    # 恰好 max_new_tokens 个 token。
     for step in range(1, max_new_tokens):
         current_length = input_tokens + step
         decode_mask = torch.ones(
@@ -198,7 +197,7 @@ def write_results(
     summary: dict[str, Any],
     results: list[RequestResult],
 ) -> Path:
-    """Write benchmark metadata, aggregate metrics and raw request data."""
+    """写入基准测试元数据、汇总指标和逐请求原始数据。"""
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     (output_path / "metadata.json").write_text(
@@ -230,11 +229,10 @@ def run_benchmark(
     seed: int = 42,
     model_dir: str | None = None,
 ) -> dict[str, Any]:
-    """Run the baseline using an already loaded model and tokenizer.
+    """使用已经加载的模型和 tokenizer 运行基线测试。
 
-    This is the Notebook-friendly API. It never calls ``from_pretrained`` and
-    therefore reuses the model already held by the current Python process.
-    The command-line entry point below remains available for a fresh process.
+    这是适用于 Notebook 的接口，不会调用 ``from_pretrained``，因此会复用当前 Python
+    进程中已经载入的模型。命令行入口仍可在新进程中独立运行。
     """
     if max_new_tokens < 1 or num_requests < 1 or warmup < 0:
         raise ValueError("max_new_tokens and num_requests must be >= 1; warmup must be >= 0")

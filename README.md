@@ -24,9 +24,9 @@
 - [x] Qwen3-0.6B FP16 模型加载和生成验证
 - [x] 环境快照与模型配置记录
 - [x] 统一 benchmark 脚本骨架
-- [x] 在 Kaggle 完成首轮统一 benchmark 实测（待重复 trial）
-- [x] Day 3 ModelRunner Prefill/Decode 接口和 KV Cache handle 骨架
-- [ ] 在 Kaggle T4 上通过 32 步 Runner smoke 验收
+- [x] 在 Kaggle 完成统一 benchmark 实测和重复 trial
+- [x] 第 3 天 ModelRunner Prefill/Decode 接口和 KV Cache 句柄骨架
+- [x] 在 Kaggle T4 上通过 32 步 Runner smoke 验收
 - [ ] 分页 KV Cache
 - [ ] 连续批处理
 - [ ] 前缀缓存

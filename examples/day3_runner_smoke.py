@@ -1,4 +1,4 @@
-"""Verify one Prefill and at least 32 single-token Decode calls."""
+"""验证一次 Prefill 和至少 32 次单 token Decode 调用。"""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ def main() -> None:
     parser.add_argument("--prompt", default="Explain KV Cache in one sentence.")
     args = parser.parse_args()
     if args.decode_steps < 32:
-        parser.error("--decode-steps must be at least 32 for Day 3 acceptance")
+        parser.error("第 3 天验收要求 --decode-steps 至少为 32")
 
     runner = ModelRunner.from_pretrained(args.model_dir, device=args.device)
     encoded = runner.tokenizer(args.prompt, return_tensors="pt")
@@ -34,7 +34,7 @@ def main() -> None:
     expected_length = int(encoded["input_ids"].shape[1]) + args.decode_steps
     if cache.sequence_length != expected_length:
         raise RuntimeError(
-            f"cache length mismatch: expected {expected_length}, got {cache.sequence_length}"
+            f"缓存长度不匹配：预期 {expected_length}，实际为 {cache.sequence_length}"
         )
 
     print(json.dumps({
