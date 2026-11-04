@@ -28,7 +28,7 @@
 - [x] 第 3 天 ModelRunner Prefill/Decode 接口和 KV Cache 句柄骨架
 - [x] 在 Kaggle T4 上通过 32 步 Runner smoke 验收
 - [x] 第 4 天朴素 KV Cache、贪心生成和一致性验收脚本
-- [ ] 在 Kaggle T4 上通过第 4 天 KV Cache 一致性验收
+- [x] 在 Kaggle T4 上通过第 4 天 KV Cache 一致性验收
 - [ ] 分页 KV Cache
 - [ ] 连续批处理
 - [ ] 前缀缓存

@@ -802,9 +802,32 @@ requests.csv
 - [x] 实现 greedy sampling；
 - [x] 处理 EOS 和 `max_new_tokens`；
 - [x] 添加 Transformers `generate` 一致性验收脚本；
-- [ ] 在 Kaggle T4 上完成 Day 4 实际验收并保存 JSON 输出。
+- [x] 在 Kaggle T4 上完成 Day 4 实际验收并保存 JSON 输出。
 
 验收退出条件：Runner 生成的 token 序列与 Transformers `generate` 在 greedy 模式下完全一致。
+
+#### 第 4 天 Kaggle 实测结果（2026-11-04）
+
+使用 Qwen3-0.6B FP16，在 `cuda:0` 上运行 `day4_cache_acceptance.py --max-new-tokens 32`，输出如下：
+
+```json
+{
+  "status": "passed",
+  "device": "cuda:0",
+  "prompt_tokens": 8,
+  "requested_max_new_tokens": 32,
+  "reference_generated_tokens": 32,
+  "runner_generated_tokens": 32,
+  "tokens_match": true,
+  "decode_calls": 31,
+  "eos_reached": false,
+  "cache_sequence_length": 39,
+  "kv_allocated_mib": 4.265625,
+  "dtype": "torch.float16"
+}
+```
+
+验收结论：Runner 与 Transformers `generate(do_sample=False)` 生成的 32 个 token 完全一致。`decode_calls` 为 31，是因为最后一个 token 由最后一次 logits 直接选出，尚未再次送入模型；因此最终 cache 长度为 `8 + 31 = 39`。第 4 天退出条件满足。
 
 ### 第 5 天：补充正确性测试
 
