@@ -25,6 +25,8 @@
 - [x] 环境快照与模型配置记录
 - [x] 统一 benchmark 脚本骨架
 - [x] 在 Kaggle 完成首轮统一 benchmark 实测（待重复 trial）
+- [x] Day 3 ModelRunner Prefill/Decode 接口和 KV Cache handle 骨架
+- [ ] 在 Kaggle T4 上通过 32 步 Runner smoke 验收
 - [ ] 分页 KV Cache
 - [ ] 连续批处理
 - [ ] 前缀缓存
@@ -116,6 +118,11 @@ deepinfer-lite/
 ├─ benchmarks/
 │  ├─ run_baseline.py       # 统一基线测试
 │  └─ README.md              # 基线测试说明
+├─ deepinfer_lite/
+│  ├─ model_runner.py       # Prefill/Decode Runner 与 KV Cache handle
+│  └─ README.md              # Runner 接口与验收说明
+├─ examples/
+│  └─ day3_runner_smoke.py  # 32 次 Decode 验收
 ├─ DeepInfer-Lite_30天实施计划.md
 └─ README.md
 ```

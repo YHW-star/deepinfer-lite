@@ -724,14 +724,38 @@ requests.csv
 
 ### 第 3 天：实现模型 Runner 骨架
 
-任务：
+#### 实现内容
 
-- 加载 tokenizer 和模型；
-- 实现 Prefill 调用；
-- 实现 Decode 单 token 调用；
-- 明确 KV Cache 的输入输出接口。
+- `deepinfer_lite/model_runner.py` 提供 `ModelRunner.from_pretrained()`，负责加载 tokenizer 和 causal LM，并将模型放到指定设备；默认 CUDA 使用 FP16，CPU 使用 FP32。
+- `ModelRunner.prefill(input_ids, attention_mask=None)` 一次处理完整 prompt，返回 `PrefillOutput(logits, kv_cache)`；`logits` 是 prompt 最后位置用于预测首 token 的 logits。
+- `ModelRunner.decode(input_ids, kv_cache)` 每个 batch row 只接收一个 token，传入已有 cache，返回 `DecodeOutput(logits, kv_cache)`。调用方用 logits 选择下一 token，再进入下一次 Decode。
+- `KVCache` 包装 Transformers `past_key_values`，并记录逻辑序列长度、batch size、device 和 attention mask。当前 cache 后端仍由 Transformers 管理，尚未实现独立 KV Tensor 或分页分配。
+- `examples/day3_runner_smoke.py` 提供 Kaggle 验收入口，运行一次 Prefill 和至少 32 次单 token Decode，并检查最终 cache 长度。
 
-验收：单请求可以完成 Prefill 和至少 32 次 Decode。
+#### Kaggle 验收
+
+确认 Notebook 当前目录是仓库根目录，模型 Dataset 已挂载，然后执行：
+
+```python
+%env PYTHONPATH=/kaggle/working/deepinfer-lite
+!python examples/day3_runner_smoke.py \
+  --model-dir /kaggle/input/datasets/yhw1027/qwen3-0-6b-model/Qwen3-0.6B \
+  --device cuda:0 \
+  --decode-steps 32
+```
+
+预期 JSON 中 `status` 为 `passed`、`decode_calls` 为 `32`，且 `cache_sequence_length` 等于 `prefill_tokens + 32`。模型下载和加载只发生在该 smoke 脚本进程中；重复验收时应确认模型仍从 Kaggle Dataset 本地路径读取。
+
+#### 完成状态
+
+- [x] tokenizer 和模型加载接口；
+- [x] Prefill 全 prompt 前向；
+- [x] Decode 单 token 前向和 cache 回传；
+- [x] 明确 KV Cache handle 的输入输出字段；
+- [x] 添加 32 步 smoke 验收脚本并通过 Python 语法检查；
+- [ ] 在 Kaggle T4 上完成实际模型验收，并保存 JSON 输出。
+
+当前本地 Windows 环境没有 PyTorch/CUDA，实际模型运行需在 Kaggle Notebook 完成。GPU 验收通过后再将最后一项勾选，并把输出记录在本节。
 
 ### 第 4 天：实现朴素 KV Cache
 
