@@ -33,6 +33,7 @@
 - [x] 在 Kaggle T4 上运行第 5 天完整测试（24 项通过）
 - [x] 第 6 天 Prefill/Decode/静态批处理基线脚本
 - [x] 在 Kaggle T4 上完成第 6 天 baseline 实测
+- [x] 第 7 天 KV Cache/Prefill/Decode/Paged Cache 设计文档
 - [ ] 分页 KV Cache
 - [ ] 连续批处理
 - [ ] 前缀缓存
@@ -135,6 +136,8 @@ deepinfer-lite/
 │  └─ test_kv_correctness.py # 第 5 天正确性测试
 ├─ reports/
 │  └─ day6_baseline/          # 第 6 天原始数据、汇总表和图表
+├─ docs/
+│  └─ day7_design.md          # 第 7 天设计说明
 ├─ DeepInfer-Lite_30天实施计划.md
 └─ README.md
 ```
@@ -177,6 +180,12 @@ DeepInfer-Lite_30天实施计划.md
 ```
 
 计划包括模型选择、双 T4 使用方式、Paged KV Cache 设计、调度器接口、benchmark 规范、阶段退出条件和风险降级方案。
+
+第 7 天设计说明见：
+
+```text
+docs/day7_design.md
+```
 
 ## Git 提交
 

@@ -954,14 +954,24 @@ reports/day6_baseline/
 
 ### 第 7 天：整理设计文档
 
-写清楚：
+产出：`docs/day7_design.md`。
+
+文档已整理以下内容：
 
 - KV Cache 的显存计算；
 - Prefill 和 Decode 的计算特征；
 - 当前实现的限制；
 - Paged KV Cache 的改造点。
 
-验收：能用 5 分钟讲清当前代码和下一步设计。
+#### 已记录的关键结论
+
+- Qwen3-0.6B FP16 的 KV Cache 理论占用为 `114,688 bytes/token`，计算式为 `2 × 28 × 8 × 128 × 2`；
+- Prefill 主要处理完整输入并写入全部 KV，长上下文下更容易成为 compute-bound 瓶颈；
+- Decode 每轮处理一个 token，主要读取历史 KV，更接近 memory-bound；
+- 当前代码是可验证的连续 KV Reference Path，不包含独立 Block Pool、Block Table、Continuous Batching 或真实分页 attention kernel；
+- Paged KV Cache 的改造重点是 Block Pool、逻辑到物理 block 映射、尾 block 追加、释放和碎片率统计，同时保持 Prefill/Decode 上层接口稳定。
+
+验收：文档可以在 5 分钟内讲清当前代码、实测证据、限制和下一步设计；第 8 天直接从 Block Pool 和 Block Table 开始实现。
 
 ### 第 8 天：实现 Block Pool
 
