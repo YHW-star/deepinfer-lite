@@ -873,14 +873,43 @@ requests.csv
 
 ### 第 6 天：完成基础显存和性能基线
 
-记录：
+#### 实现内容
+
+新增 `benchmarks/run_day6_baseline.py`，一次加载模型后固定使用 greedy 解码，并对每个配置运行多个 trial：
 
 - 单请求 Prefill 延迟；
 - 单 token Decode 延迟；
 - 1/4/8 并发下的吞吐；
 - 不同上下文长度下的峰值显存。
 
-产出：第一版 baseline 表格和图。
+这里的 batch 1/4/8 是静态批处理：同一批请求先完成 Prefill，再逐轮 Decode，作为连续批处理的参考基线，不代表动态请求到达场景。Decode 计时只覆盖单 token 前向，但峰值显存包含测量开始前已经存在的 KV Cache。
+
+#### Kaggle 运行
+
+```python
+%env PYTHONPATH=/kaggle/working/deepinfer-lite
+!python benchmarks/run_day6_baseline.py \
+  --model-dir /kaggle/input/datasets/yhw1027/qwen3-0-6b-model/Qwen3-0.6B \
+  --output-dir /kaggle/working/day6_baseline \
+  --contexts 128,512,2048 \
+  --batch-sizes 1,4,8 \
+  --max-new-tokens 32 \
+  --trials 3 \
+  --warmup 1 \
+  --device cuda:0 \
+  --seed 42
+```
+
+产出目录包含 `metadata.json`、逐 trial 原始数据 `baseline_trials.csv`、汇总表 `baseline_summary.csv`、`summary.json` 和四联图 `baseline_plots.png`。
+
+#### 完成状态
+
+- [x] 实现单请求 Prefill 延迟测量；
+- [x] 实现单 token Decode 延迟测量；
+- [x] 实现静态 batch 1/4/8 吞吐测量；
+- [x] 记录不同上下文长度的峰值显存；
+- [x] 输出 CSV、JSON 和 PNG 图表；
+- [ ] 在 Kaggle T4 上运行完整 baseline 并把结果表写回本节。
 
 ### 第 7 天：整理设计文档
 

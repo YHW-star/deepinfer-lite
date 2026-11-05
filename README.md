@@ -31,6 +31,8 @@
 - [x] 在 Kaggle T4 上通过第 4 天 KV Cache 一致性验收
 - [x] 第 5 天 KV Cache 正确性测试文件
 - [x] 在 Kaggle T4 上运行第 5 天完整测试（24 项通过）
+- [x] 第 6 天 Prefill/Decode/静态批处理基线脚本
+- [ ] 在 Kaggle T4 上完成第 6 天 baseline 实测
 - [ ] 分页 KV Cache
 - [ ] 连续批处理
 - [ ] 前缀缓存
@@ -121,6 +123,7 @@ requests.csv    # 方便后续绘图和分析
 deepinfer-lite/
 ├─ benchmarks/
 │  ├─ run_baseline.py       # 统一基线测试
+│  ├─ run_day6_baseline.py  # 第 6 天性能和显存基线
 │  └─ README.md              # 基线测试说明
 ├─ deepinfer_lite/
 │  ├─ model_runner.py       # Prefill/Decode Runner 与 KV Cache handle
@@ -145,6 +148,22 @@ deepinfer-lite/
 !DEEPINFER_MODEL_DIR=/kaggle/input/datasets/yhw1027/qwen3-0-6b-model/Qwen3-0.6B \
   DEEPINFER_TEST_DEVICE=cuda:0 \
   pytest -q tests/test_kv_correctness.py
+```
+
+### 运行第 6 天性能基线
+
+```python
+%env PYTHONPATH=/kaggle/working/deepinfer-lite
+!python benchmarks/run_day6_baseline.py \
+  --model-dir /kaggle/input/datasets/yhw1027/qwen3-0-6b-model/Qwen3-0.6B \
+  --output-dir /kaggle/working/day6_baseline \
+  --contexts 128,512,2048 \
+  --batch-sizes 1,4,8 \
+  --max-new-tokens 32 \
+  --trials 3 \
+  --warmup 1 \
+  --device cuda:0 \
+  --seed 42
 ```
 
 ## 项目计划

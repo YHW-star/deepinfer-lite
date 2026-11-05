@@ -84,3 +84,30 @@ result = run_benchmark(
 - **峰值显存**：PyTorch 统计到的 CUDA 峰值已分配显存和峰值预留显存。
 
 为保证请求间可比，脚本遇到 EOS 后仍会继续 Decode，直到达到 `max_new_tokens`。`eos_hit` 字段记录是否遇到 EOS。
+
+## 第 6 天：性能和显存基线
+
+`run_day6_baseline.py` 记录单请求 Prefill、单 token Decode、静态 batch 1/4/8 吞吐，以及上下文长度为 128/512/2048 时的峰值显存。默认每组运行 3 个 trial，并输出：
+
+- `baseline_trials.csv`：逐 trial 原始数据；
+- `baseline_summary.csv`：均值和样本标准差；
+- `summary.json`：汇总 JSON；
+- `baseline_plots.png`：四联图；
+- `metadata.json`：设备、版本和 workload 配置。
+
+在 Kaggle 仓库根目录运行：
+
+```python
+!python benchmarks/run_day6_baseline.py \
+  --model-dir /kaggle/input/datasets/yhw1027/qwen3-0-6b-model/Qwen3-0.6B \
+  --output-dir /kaggle/working/day6_baseline \
+  --contexts 128,512,2048 \
+  --batch-sizes 1,4,8 \
+  --max-new-tokens 32 \
+  --trials 3 \
+  --warmup 1 \
+  --device cuda:0 \
+  --seed 42
+```
+
+batch 测试是静态批处理参考，不包含连续批处理中的请求动态进入和退出。
