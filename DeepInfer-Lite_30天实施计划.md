@@ -859,7 +859,17 @@ requests.csv
 - [x] 建立两个独立请求交错 Decode 测试；
 - [x] 建立 EOS 提前结束测试；
 - [x] 建立连续 KV Cache 的 block 边界和非法追加测试；
-- [ ] 在 Kaggle T4 上运行完整测试并保存测试摘要。
+- [x] 在 Kaggle T4 上运行完整测试，24 项全部通过。
+
+#### 第 5 天 Kaggle 测试结果（2026-11-05）
+
+在 Kaggle Notebook 的 Qwen3-0.6B / Tesla T4 环境运行 `pytest -q tests/test_kv_correctness.py`：
+
+```text
+24 passed in 69.84s
+```
+
+24 项包括 12 组输入/输出长度组合、两个请求交错 Decode、EOS 提前停止、9 组 block 边界追加，以及非法追加后的状态保持。长度矩阵中 Runner 与 Transformers greedy 输出逐 token 一致。第 5 天退出条件满足。
 
 ### 第 6 天：完成基础显存和性能基线
 
