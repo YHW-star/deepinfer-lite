@@ -32,7 +32,7 @@
 - [x] 第 5 天 KV Cache 正确性测试文件
 - [x] 在 Kaggle T4 上运行第 5 天完整测试（24 项通过）
 - [x] 第 6 天 Prefill/Decode/静态批处理基线脚本
-- [ ] 在 Kaggle T4 上完成第 6 天 baseline 实测
+- [x] 在 Kaggle T4 上完成第 6 天 baseline 实测
 - [ ] 分页 KV Cache
 - [ ] 连续批处理
 - [ ] 前缀缓存
@@ -133,6 +133,8 @@ deepinfer-lite/
 │  └─ day4_cache_acceptance.py # 朴素 KV Cache 正确性验收
 ├─ tests/
 │  └─ test_kv_correctness.py # 第 5 天正确性测试
+├─ reports/
+│  └─ day6_baseline/          # 第 6 天原始数据、汇总表和图表
 ├─ DeepInfer-Lite_30天实施计划.md
 └─ README.md
 ```

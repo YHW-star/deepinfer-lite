@@ -909,7 +909,48 @@ requests.csv
 - [x] 实现静态 batch 1/4/8 吞吐测量；
 - [x] 记录不同上下文长度的峰值显存；
 - [x] 输出 CSV、JSON 和 PNG 图表；
-- [ ] 在 Kaggle T4 上运行完整 baseline 并把结果表写回本节。
+- [x] 在 Kaggle T4 上运行完整 baseline 并把结果表写回本节。
+
+#### 第 6 天 Kaggle 实测结果（2026-11-05）
+
+结果归档：
+
+```text
+C:\Users\86176\Desktop\AI Infra\day6_baseline.zip
+C:\Users\86176\Desktop\AI Infra\day6_baseline\day6_baseline\baseline_summary.csv
+C:\Users\86176\Desktop\AI Infra\day6_baseline\day6_baseline\baseline_plots.png
+reports/day6_baseline/
+```
+
+本次实测配置为 Qwen3-0.6B FP16、Tesla T4、`cuda:0`、输入长度 128/512/2048、静态 batch 1/4/8、输出长度 32、3 次 trial、1 次 warmup。汇总均值如下：
+
+**单请求 Prefill、单 token Decode 和显存**
+
+| 上下文 token | Prefill 平均延迟 | Prefill allocated 显存 | Decode 平均延迟 | Decode allocated 显存 |
+|---:|---:|---:|---:|---:|
+| 128 | 53.67 ms | 1197 MiB | 43.88 ms | 1212 MiB |
+| 512 | 88.48 ms | 1350 MiB | 42.45 ms | 1412 MiB |
+| 2048 | 830.48 ms | 2062 MiB | 45.58 ms | 2177 MiB |
+
+**静态批处理生成吞吐**
+
+| 上下文 token | batch=1 | batch=4 | batch=8 |
+|---:|---:|---:|---:|
+| 128 | 22.59 tokens/s | 89.12 tokens/s | 169.97 tokens/s |
+| 512 | 22.58 tokens/s | 73.65 tokens/s | 106.20 tokens/s |
+| 2048 | 14.39 tokens/s | 19.71 tokens/s | 21.28 tokens/s |
+
+观察结论：
+
+1. Prefill 是长上下文的主要延迟瓶颈，输入从 512 增至 2048 token 时平均延迟从 88.48 ms 增至 830.48 ms；
+2. 单 token Decode 延迟在三个上下文长度下约为 42–45.6 ms，变化明显小于 Prefill；
+3. 短上下文适合通过静态 batch 提升吞吐，128 token 时 batch=8 达到 169.97 tokens/s，约为 batch=1 的 7.5 倍；
+4. 2048 token 时 batch=8 的吞吐只有 21.28 tokens/s，且 allocated 显存达到 8363 MiB，说明长上下文下显存和带宽压力限制了批处理扩展；
+5. 峰值 reserved 显存受 PyTorch allocator 缓存影响，A/B 对比应优先关注 allocated 显存，同时保留两者。
+
+本次 `metadata.json` 记录的环境是 Python 3.13.16、PyTorch 2.11.0+cu130、Transformers 5.20.2；第 1 天快照为 PyTorch 2.11.0+cu128、Transformers 5.16.1。两次结果不应直接作为严格 A/B 数字，后续基线与 Paged KV Cache 对比必须在同一 Kaggle 环境和同一代码版本下重跑。
+
+第 6 天退出条件满足：原始 trial、汇总 CSV、JSON 元数据和 PNG 图表均已保存。
 
 ### 第 7 天：整理设计文档
 

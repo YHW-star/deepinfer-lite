@@ -1,0 +1,31 @@
+{
+  "timestamp_utc": "2026-11-05T02:48:29.937944+00:00",
+  "python": "3.13.16",
+  "torch": "2.11.0+cu130",
+  "torch_cuda": "13.0",
+  "transformers": "5.20.2",
+  "model_dir": "/kaggle/input/datasets/yhw1027/qwen3-0-6b-model/Qwen3-0.6B",
+  "device": "cuda:0",
+  "device_name": "Tesla T4",
+  "dtype": "torch.float16",
+  "seed": 42,
+  "sampling": {
+    "method": "greedy",
+    "do_sample": false
+  },
+  "contexts": [
+    128,
+    512,
+    2048
+  ],
+  "batch_sizes": [
+    1,
+    4,
+    8
+  ],
+  "max_new_tokens": 32,
+  "trials": 3,
+  "warmup": 1,
+  "batch_mode": "static_prefill_then_decode",
+  "stop_behavior": "fixed_output_length_ignore_eos"
+}
