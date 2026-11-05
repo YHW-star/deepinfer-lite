@@ -294,6 +294,31 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 def write_plot(path: Path, summary: list[dict[str, Any]]) -> None:
     """输出四联图；绘图依赖只在实际生成图表时导入。"""
     import matplotlib.pyplot as plt
+    from matplotlib import font_manager
+
+    installed_fonts = {font.name for font in font_manager.fontManager.ttflist}
+    cjk_candidates = (
+        "Noto Sans CJK SC",
+        "Noto Sans CJK JP",
+        "Microsoft YaHei",
+        "SimHei",
+        "WenQuanYi Zen Hei",
+    )
+    cjk_font = next((name for name in cjk_candidates if name in installed_fonts), None)
+    if cjk_font:
+        plt.rcParams["font.sans-serif"] = [cjk_font, "DejaVu Sans"]
+        plt.rcParams["axes.unicode_minus"] = False
+
+    labels = {
+        "prefill_title": "Prefill 延迟与上下文长度" if cjk_font else "Prefill Latency vs Context Length",
+        "decode_title": "单 token Decode 延迟与上下文长度" if cjk_font else "Single-token Decode Latency vs Context Length",
+        "batch_title": "静态批处理吞吐" if cjk_font else "Static Batch Throughput",
+        "memory_title": "峰值 allocated 显存" if cjk_font else "Peak Allocated GPU Memory",
+        "context": "上下文 token 数" if cjk_font else "Context Tokens",
+        "latency": "平均延迟（ms）" if cjk_font else "Mean Latency (ms)",
+        "throughput": "生成 token/s" if cjk_font else "Generated Tokens/s",
+        "memory": "MiB",
+    }
 
     fig, axes = plt.subplots(2, 2, figsize=(12, 8), constrained_layout=True)
     prefill_rows = [row for row in summary if row["metric"] == "prefill"]
@@ -306,9 +331,9 @@ def write_plot(path: Path, summary: list[dict[str, Any]]) -> None:
         marker="o",
         label="Prefill",
     )
-    axes[0, 0].set_title("Prefill 延迟与上下文长度")
-    axes[0, 0].set_xlabel("上下文 token 数")
-    axes[0, 0].set_ylabel("平均延迟（ms）")
+    axes[0, 0].set_title(labels["prefill_title"])
+    axes[0, 0].set_xlabel(labels["context"])
+    axes[0, 0].set_ylabel(labels["latency"])
 
     axes[0, 1].plot(
         [row["context_tokens"] for row in decode_rows],
@@ -317,9 +342,9 @@ def write_plot(path: Path, summary: list[dict[str, Any]]) -> None:
         color="tab:orange",
         label="Decode",
     )
-    axes[0, 1].set_title("单 token Decode 延迟与上下文长度")
-    axes[0, 1].set_xlabel("上下文 token 数")
-    axes[0, 1].set_ylabel("平均延迟（ms）")
+    axes[0, 1].set_title(labels["decode_title"])
+    axes[0, 1].set_xlabel(labels["context"])
+    axes[0, 1].set_ylabel(labels["latency"])
 
     for batch_size in sorted({row["batch_size"] for row in batch_rows}):
         rows = [row for row in batch_rows if row["batch_size"] == batch_size]
@@ -329,9 +354,9 @@ def write_plot(path: Path, summary: list[dict[str, Any]]) -> None:
             marker="o",
             label=f"batch={batch_size}",
         )
-    axes[1, 0].set_title("静态批处理吞吐")
-    axes[1, 0].set_xlabel("上下文 token 数")
-    axes[1, 0].set_ylabel("生成 token/s")
+    axes[1, 0].set_title(labels["batch_title"])
+    axes[1, 0].set_xlabel(labels["context"])
+    axes[1, 0].set_ylabel(labels["throughput"])
     axes[1, 0].legend()
 
     for metric, label, color in (
@@ -346,9 +371,9 @@ def write_plot(path: Path, summary: list[dict[str, Any]]) -> None:
             color=color,
             label=label,
         )
-    axes[1, 1].set_title("峰值 allocated 显存")
-    axes[1, 1].set_xlabel("上下文 token 数")
-    axes[1, 1].set_ylabel("MiB")
+    axes[1, 1].set_title(labels["memory_title"])
+    axes[1, 1].set_xlabel(labels["context"])
+    axes[1, 1].set_ylabel(labels["memory"])
     axes[1, 1].legend()
 
     for axis in axes.flat:
