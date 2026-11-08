@@ -1070,8 +1070,19 @@ allocated_count == 0
 allocation_count == 0
 ```
 
-本地已完成 Python 编译检查和 `git diff --check`；GPU 环境中的 pytest 实测待在 Kaggle
-运行后补录。
+本地已完成 Python 编译检查和 `git diff --check`。
+
+#### 第 9 天测试结果（2026-11-08）
+
+在 Kaggle 仓库根目录运行 `pytest -q tests/test_block_table.py`：
+
+```text
+.......                                                                  [100%]
+7 passed in 7.57s
+```
+
+7 项测试覆盖 Block 边界扩容、初始分配、映射查询、释放后访问保护、空请求、容量不足
+时的原子性，以及随机长度请求运行 100 次后的 Pool 容量恢复。第 9 天退出条件满足。
 
 ### 第 10 天：分页 KV 写入
 

@@ -37,7 +37,7 @@
 - [x] 第 8 天 Block Pool 生命周期管理器和单元测试
 - [x] 在 Kaggle 通过第 8 天 Block Pool 测试（12 项）
 - [x] 第 9 天 Block Table 映射、边界扩容和生命周期回收实现
-- [ ] 在 Kaggle 通过第 9 天随机 100 次请求回收验收
+- [x] 在 Kaggle 通过第 9 天随机 100 次请求回收验收（7 项）
 - [ ] 分页 KV Cache
 - [ ] 连续批处理
 - [ ] 前缀缓存
@@ -174,6 +174,8 @@ deepinfer-lite/
 
 验收重点是固定随机种子下创建并结束 100 个不同长度请求；每个请求结束后，Pool
 必须恢复为 `free_count == 64`、`allocated_count == 0`、`allocation_count == 0`。
+
+最近一次 Kaggle 验收结果：`7 passed in 7.57s`（2026-11-08）。
 
 ### 运行第 6 天性能基线
 
