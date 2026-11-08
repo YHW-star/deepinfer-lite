@@ -10,6 +10,7 @@ from .block_pool import (
     BlockPoolSnapshot,
     DuplicateAllocationError,
 )
+from .block_table import BlockTable, BlockTableError, BlockTableReleasedError, BlockTableSnapshot
 
 __all__ = [
     "KVCache",
@@ -24,4 +25,8 @@ __all__ = [
     "DuplicateAllocationError",
     "BlockDoubleFreeError",
     "BlockOwnershipError",
+    "BlockTable",
+    "BlockTableSnapshot",
+    "BlockTableError",
+    "BlockTableReleasedError",
 ]

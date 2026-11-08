@@ -19,6 +19,41 @@ Transformers 返回和追加 `past_key_values`，Runner 会检查每层 Key/Valu
 
 当前 Block Pool 只管理元数据，不分配 KV Tensor。真实的分页 KV 写入和 attention 读取将在后续阶段接入。
 
+## Block Table
+
+`BlockTable` 为一个请求维护逻辑 Block 到物理 Block 的有序映射。它不直接持有 KV
+Tensor，因此可以先独立验证分页分配器的边界和生命周期，再在后续阶段接入真正的 KV
+写入路径。
+
+```python
+from deepinfer_lite import BlockPool, BlockTable
+
+pool = BlockPool(num_blocks=64, block_size=16)
+table = BlockTable(pool, request_id="request-1", sequence_length=17)
+assert table.logical_block_count() == 2
+first_physical_block = table.logical_to_physical(0)
+table.append_token()  # 只有跨过 16-token 边界时才会申请新 Block
+table.release()       # 释放该请求的全部物理 Block
+```
+
+主要行为：
+
+- 初始序列长度按 `ceil(sequence_length / block_size)` 申请物理 Block；
+- `append_token()` 和 `append_tokens(n)` 只在跨越 Block 边界时扩容；
+- `logical_to_physical()` 查询逻辑 Block 映射，`physical_for_token()` 查询 token 所在物理 Block；
+- Pool 不足时抛出 `BlockPoolExhaustedError`，请求的长度、映射和 Pool 状态保持不变；
+- `release()` 回收全部物理 Block，之后的访问抛出 `BlockTableReleasedError`；
+- `snapshot()` 可记录序列长度、Block 数量和尾部内部碎片。
+
+运行第 9 天单元测试：
+
+```python
+pytest -q tests/test_block_table.py
+```
+
+测试包含 Block 边界扩容、初始长度分配、映射查询、空请求、释放后的访问保护、Pool
+不足时的原子性，以及固定随机种子的 100 次请求生命周期回收验收。
+
 运行独立单元测试：
 
 ```python

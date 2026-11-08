@@ -100,6 +100,21 @@ class BlockPool:
         self.release_blocks(block_ids, request_id=request_id)
         return block_ids
 
+    def extend(self, num_blocks: int, request_id: str) -> list[int]:
+        """为已经持有 Block 的请求追加物理 Block。"""
+        if not isinstance(num_blocks, int) or isinstance(num_blocks, bool) or num_blocks < 1:
+            raise ValueError("追加数量必须是大于等于 1 的整数")
+        if request_id not in self._allocated_blocks:
+            raise BlockDoubleFreeError(f"请求 {request_id!r} 没有可扩展的 Block")
+        available = len(self._free_blocks)
+        if num_blocks > available:
+            raise BlockPoolExhaustedError(num_blocks, available)
+
+        block_ids = [self._free_blocks.popleft() for _ in range(num_blocks)]
+        self._allocated_blocks[request_id].extend(block_ids)
+        self._block_owners.update({block_id: request_id for block_id in block_ids})
+        return list(block_ids)
+
     def release_blocks(self, block_ids: Iterable[int], request_id: str | None = None) -> None:
         """释放一部分或全部 Block，先完成校验再修改状态。"""
         ids = list(block_ids)

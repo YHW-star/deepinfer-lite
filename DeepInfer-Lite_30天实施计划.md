@@ -1021,13 +1021,57 @@ Block Pool 目前不代表真实 PagedAttention：第 10 天接入 KV Tensor 后
 
 ### 第 9 天：实现 Block Table
 
-任务：
+#### 实现内容
 
-- 为每个请求维护逻辑 Block 到物理 Block 的映射；
-- 支持追加 token 时自动申请新 Block；
-- 支持序列结束时回收全部 Block。
+新增 `deepinfer_lite/block_table.py`，以一个请求为边界维护逻辑 Block 到物理 Block 的
+有序映射。Block Table 只负责分页元数据和生命周期，不直接操作 GPU KV Tensor，便于在
+接入分页 KV 写入前先验证分配器的正确性。
 
-验收：随机长度请求运行 100 次后，Block 数量恢复到初始状态。
+- `BlockTable(pool, request_id, sequence_length=0)` 按
+  `ceil(sequence_length / block_size)` 申请初始物理 Block；空请求不申请 Block；
+- `append_token()` 和 `append_tokens(n)` 更新序列长度，只有跨过当前尾 Block 边界时
+  才通过 `BlockPool.extend()` 申请新物理 Block；
+- `logical_to_physical(logical_block_id)` 提供逻辑 Block 查询，
+  `physical_for_token(token_position)` 提供 token 到物理 Block 的查询；
+- `release()` 回收请求持有的全部物理 Block，并将请求标记为结束；释放后的请求不能再
+  追加、释放或查询映射；
+- `snapshot()` 记录序列长度、逻辑 Block 数、已分配 token 容量、尾部内部碎片和释放状态；
+- `BlockPool.extend()` 为已分配请求追加物理 Block；申请数量不足时先校验容量，保证
+  BlockTable 长度和映射不会被部分修改；
+- `deepinfer_lite/__init__.py` 导出 `BlockTable`、快照和释放状态异常，后续测试可直接
+  从包根目录导入。
+
+#### 测试覆盖
+
+新增 `tests/test_block_table.py`，覆盖：
+
+- 追加 token 跨越 Block 边界时自动扩容；
+- 初始序列长度的 Block 数和尾部浪费计算；
+- 逻辑 Block、token 位置和物理 Block 的映射查询；
+- 空请求结束时不泄漏 Pool 容量；
+- 释放后访问保护和释放状态快照；
+- Pool 不足时扩容失败的原子性；
+- 固定随机种子下 100 次随机长度请求的创建、追加和释放。
+
+#### 验收命令
+
+在 Kaggle Notebook 的仓库根目录运行：
+
+```python
+%env PYTHONPATH=/kaggle/working/deepinfer-lite
+!pytest -q tests/test_block_table.py
+```
+
+随机生命周期测试的强验收条件是每个请求释放后均满足：
+
+```text
+free_count == 64
+allocated_count == 0
+allocation_count == 0
+```
+
+本地已完成 Python 编译检查和 `git diff --check`；GPU 环境中的 pytest 实测待在 Kaggle
+运行后补录。
 
 ### 第 10 天：分页 KV 写入
 
