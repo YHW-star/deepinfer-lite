@@ -34,6 +34,8 @@
 - [x] 第 6 天 Prefill/Decode/静态批处理基线脚本
 - [x] 在 Kaggle T4 上完成第 6 天 baseline 实测
 - [x] 第 7 天 KV Cache/Prefill/Decode/Paged Cache 设计文档
+- [x] 第 8 天 Block Pool 生命周期管理器和单元测试
+- [ ] 在 Kaggle 或本地 pytest 环境通过第 8 天测试
 - [ ] 分页 KV Cache
 - [ ] 连续批处理
 - [ ] 前缀缓存
@@ -127,13 +129,15 @@ deepinfer-lite/
 │  ├─ run_day6_baseline.py  # 第 6 天性能和显存基线
 │  └─ README.md              # 基线测试说明
 ├─ deepinfer_lite/
+│  ├─ block_pool.py          # 第 8 天固定 Block 生命周期管理
 │  ├─ model_runner.py       # Prefill/Decode Runner 与 KV Cache handle
 │  └─ README.md              # Runner 接口与验收说明
 ├─ examples/
 │  ├─ day3_runner_smoke.py  # 32 次 Decode 验收
 │  └─ day4_cache_acceptance.py # 朴素 KV Cache 正确性验收
 ├─ tests/
-│  └─ test_kv_correctness.py # 第 5 天正确性测试
+│  ├─ test_kv_correctness.py # 第 5 天正确性测试
+│  └─ test_block_pool.py     # 第 8 天 Block Pool 测试
 ├─ reports/
 │  └─ day6_baseline/          # 第 6 天原始数据、汇总表和图表
 ├─ docs/

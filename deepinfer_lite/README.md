@@ -13,6 +13,18 @@ Transformers 返回和追加 `past_key_values`，Runner 会检查每层 Key/Valu
 `max_new_tokens` 个 token。返回的 `decode_calls` 是实际送入模型的单 token 次数，因此
 最后一个刚由 logits 选出的 token 尚未再次送入模型时，最终 cache 长度会比完整输出少 1。
 
+## Block Pool
+
+`BlockPool(num_blocks, block_size)` 管理固定容量的 Block ID。它支持按请求申请/释放、按 ID 部分释放、查询请求映射和 owner，以及查看 free/allocated 快照。容量不足、重复申请、重复释放和越权释放都会抛出明确异常；容量不足时 Pool 状态保持不变。
+
+当前 Block Pool 只管理元数据，不分配 KV Tensor。真实的分页 KV 写入和 attention 读取将在后续阶段接入。
+
+运行独立单元测试：
+
+```python
+pytest -q tests/test_block_pool.py
+```
+
 ## Kaggle 验收运行
 
 挂载模型 Dataset 后，在仓库根目录运行：

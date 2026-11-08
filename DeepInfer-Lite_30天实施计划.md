@@ -975,18 +975,39 @@ reports/day6_baseline/
 
 ### 第 8 天：实现 Block Pool
 
-任务：
+#### 实现内容
+
+新增 `deepinfer_lite/block_pool.py`，当前只管理固定大小物理 Block 的 ID 和生命周期，不持有 GPU KV Tensor：
 
 - 实现固定 Block Size；
-- 实现申请、释放、查询；
-- 记录 free/allocated 数量；
-- 增加重复释放和超额申请检查。
+- `BlockPool(num_blocks, block_size)` 创建固定容量的 Pool，Block ID 为稳定的整数；
+- `allocate(num_blocks, request_id)` 申请一组 Block，并返回逻辑顺序对应的物理 ID；
+- `release(request_id)` 释放请求持有的全部 Block，`release_blocks()` 支持部分释放；
+- `free_count()`、`allocated_count()`、`allocation_count()` 和 `snapshot()` 查询资源状态；
+- 记录请求到 Block ID 的映射，并检查重复申请、重复释放、越权释放和容量不足；
+- 申请失败先完成容量校验，保证失败不会改变 Pool 状态。
+
+Block Pool 目前不代表真实 PagedAttention：第 10 天接入 KV Tensor 后，才会将物理 ID 映射到实际 GPU Block。
 
 测试：
 
 - 全部申请后释放；
 - 交错申请和释放；
-- Block 不足时返回明确错误。
+- Block 不足时返回明确错误；
+- 申请量超过总容量时状态保持不变；
+- 重复申请、重复释放和越权释放；
+- 查询 owner、请求映射和快照。
+
+产出：`tests/test_block_pool.py`。
+
+#### 完成状态
+
+- [x] 实现固定 Block Size 和确定性的 Block ID；
+- [x] 实现申请、释放、部分释放和查询；
+- [x] 记录 free/allocated/request allocation 数量；
+- [x] 增加重复释放、重复申请、越权释放和超额申请检查；
+- [x] 添加全部申请释放、交错申请释放和容量不足测试；
+- [ ] 在 Kaggle 或安装 pytest 的本地环境运行第 8 天测试并保存结果。
 
 ### 第 9 天：实现 Block Table
 
