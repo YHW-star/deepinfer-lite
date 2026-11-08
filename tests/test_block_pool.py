@@ -40,6 +40,7 @@ def test_interleaved_allocate_release_reuses_freed_blocks() -> None:
     pool = BlockPool(num_blocks=6, block_size=8)
     request_a = pool.allocate(2, request_id="a")
     request_b = pool.allocate(2, request_id="b")
+    request_d = pool.allocate(2, request_id="d")
 
     pool.release("a")
     request_c = pool.allocate(2, request_id="c")
@@ -48,11 +49,12 @@ def test_interleaved_allocate_release_reuses_freed_blocks() -> None:
     assert request_b == [2, 3]
     assert request_c == [0, 1]
     assert pool.blocks_for("b") == [2, 3]
+    assert pool.blocks_for("d") == [4, 5]
     assert pool.owner_of(0) == "c"
-    assert pool.owner_of(4) is None
-    assert pool.free_count() == 2
+    assert pool.free_count() == 0
 
     pool.release("b")
+    pool.release("d")
     pool.release("c")
     assert pool.snapshot().free_blocks == 6
 
