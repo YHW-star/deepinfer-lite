@@ -35,7 +35,7 @@
 - [x] 在 Kaggle T4 上完成第 6 天 baseline 实测
 - [x] 第 7 天 KV Cache/Prefill/Decode/Paged Cache 设计文档
 - [x] 第 8 天 Block Pool 生命周期管理器和单元测试
-- [ ] 在 Kaggle 或本地 pytest 环境通过第 8 天测试
+- [x] 在 Kaggle 通过第 8 天 Block Pool 测试（12 项）
 - [ ] 分页 KV Cache
 - [ ] 连续批处理
 - [ ] 前缀缓存

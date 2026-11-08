@@ -1007,7 +1007,17 @@ Block Pool 目前不代表真实 PagedAttention：第 10 天接入 KV Tensor 后
 - [x] 记录 free/allocated/request allocation 数量；
 - [x] 增加重复释放、重复申请、越权释放和超额申请检查；
 - [x] 添加全部申请释放、交错申请释放和容量不足测试；
-- [ ] 在 Kaggle 或安装 pytest 的本地环境运行第 8 天测试并保存结果。
+- [x] 在 Kaggle 运行第 8 天测试，12 项全部通过。
+
+#### 第 8 天测试结果（2026-11-08）
+
+在 Kaggle 仓库根目录运行 `pytest -q tests/test_block_pool.py`：
+
+```text
+12 passed in 7.65s
+```
+
+结果覆盖全量申请释放、交错申请释放与 block 复用、容量不足和超额申请原子性、重复申请/释放、越权释放、匿名申请回收及 Pool 配置检查。第 8 天退出条件满足。
 
 ### 第 9 天：实现 Block Table
 
