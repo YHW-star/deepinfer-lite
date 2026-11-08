@@ -159,6 +159,8 @@ deepinfer-lite/
   pytest -q tests/test_kv_correctness.py
 ```
 
+测试目录包含 `conftest.py`，即使没有设置 `PYTHONPATH`，直接从仓库目录运行 `pytest` 也能导入 `deepinfer_lite`。
+
 ### 运行第 6 天性能基线
 
 ```python
