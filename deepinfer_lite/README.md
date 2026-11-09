@@ -64,8 +64,9 @@ pytest -q tests/test_block_table.py
 
 `PagedModelRunner` 是模型对照适配器：每轮 Decode 前 gather 连续 KV，调用现有
 `ModelRunner.decode()`，再把返回 KV 的新增 token 写回分页存储。因此它验证分页管理和
-读写的正确性，不能代表 Attention Kernel 已经直接按 Block Table 读取，也不能据此宣称
-获得了 PagedAttention 性能收益。
+读写的正确性。对于当前 Transformers 5.x，gather 结果会先封装为 `DynamicCache`，再
+传给 Qwen3 前向；这一步是模型 API 适配，不改变分页存储布局。该路径不能代表 Attention
+Kernel 已经直接按 Block Table 读取，也不能据此宣称获得了 PagedAttention 性能收益。
 
 运行独立单元测试：
 
