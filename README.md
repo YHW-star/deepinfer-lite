@@ -39,6 +39,7 @@
 - [x] 第 9 天 Block Table 映射、边界扩容和生命周期回收实现
 - [x] 在 Kaggle 通过第 9 天随机 100 次请求回收验收（7 项）
 - [x] 第 10 天分页 KV Reference Path 实现与 Qwen3 greedy 一致性验收
+- [x] 在 Kaggle 通过第 10 天分页 KV 读写测试（25 项）
 - [ ] 分页 KV Cache
 - [ ] 连续批处理
 - [ ] 前缀缓存
@@ -199,6 +200,7 @@ deepinfer-lite/
 `free_count` 恢复到 Pool 初始容量。
 
 最近一次模型一致性结果：`1 passed, 24 deselected in 12.72s`（2026-11-09）。
+分页 KV 读写与资源回收单元测试：`25 passed in 7.66s`（2026-11-09）。
 
 ### 运行第 6 天性能基线
 

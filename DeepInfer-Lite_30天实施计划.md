@@ -1136,8 +1136,21 @@ allocation_count == 0
 ```
 
 `test_paged_reference_generation_matches_contiguous_runner` 通过，说明分页 Reference
-Path 与连续 Runner 的 greedy 生成 token 完全一致。分页 KV 的合成读写和资源回收测试
-仍需单独运行 `pytest -q tests/test_paged_kv_cache.py` 后补录。
+Path 与连续 Runner 的 greedy 生成 token 完全一致。
+
+#### 第 10 天分页读写测试结果（2026-11-09）
+
+在 Kaggle 仓库根目录运行 `pytest -q tests/test_paged_kv_cache.py`：
+
+```text
+.........................                                                [100%]
+25 passed in 7.66s
+```
+
+测试覆盖 Prefill 按 Block 写入及 gather 还原、不同 Block Size 和跨边界场景、Decode
+只追加新 token、非法输入及 Pool 耗尽时的状态保持、分配失败无泄漏和释放回收。结合
+上面的模型 greedy 对照测试，第 10 天验收条件满足。当前仍是 gather 型 Reference Path，
+不代表 Attention Kernel 直接读取分页 KV。
 
 ### 第 11 天：不同 Block Size 实验
 
