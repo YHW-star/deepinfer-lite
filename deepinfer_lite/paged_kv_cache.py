@@ -277,8 +277,12 @@ class PagedModelRunner:
     @torch.inference_mode()
     def decode(self, input_ids: torch.Tensor, paged_cache: PagedKVCache) -> PagedDecodeOutput:
         """还原连续 KV 执行单 token Decode，再将新增 KV 写回分页存储。"""
+        contiguous_past = _to_transformers_cache(
+            paged_cache.to_contiguous(),
+            self.runner.model.config,
+        )
         contiguous_cache = KVCache(
-            past_key_values=paged_cache.to_contiguous(),
+            past_key_values=contiguous_past,
             sequence_length=paged_cache.sequence_length,
             batch_size=1,
             device=paged_cache.device,
@@ -287,3 +291,26 @@ class PagedModelRunner:
         result: DecodeOutput = self.runner.decode(input_ids, contiguous_cache)
         paged_cache.append_from_contiguous(result.kv_cache.past_key_values)
         return PagedDecodeOutput(result.logits, paged_cache)
+
+
+def _to_transformers_cache(pairs: Any, config: Any) -> Any:
+    """将连续 KV 元组封装成模型当前 Transformers 版本要求的 Cache 类型。"""
+    try:
+        from transformers.cache_utils import DynamicCache
+    except ImportError as exc:
+        raise PagedKVCacheError("当前 Transformers 未提供 DynamicCache") from exc
+
+    from_legacy_cache = getattr(DynamicCache, "from_legacy_cache", None)
+    if from_legacy_cache is not None:
+        try:
+            return from_legacy_cache(pairs, config=config)
+        except TypeError:
+            return from_legacy_cache(pairs)
+
+    cache = DynamicCache(config=config)
+    for layer_index, (key, value) in enumerate(pairs):
+        try:
+            cache.update(key, value, layer_index, cache_kwargs={})
+        except TypeError:
+            cache.update(key, value, layer_index)
+    return cache
