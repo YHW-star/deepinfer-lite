@@ -1127,6 +1127,18 @@ allocation_count == 0
 `allocation_count` 均为 0。该实现是 gather 型 Reference Path，不宣称 Attention Kernel
 已经直接读取分页 KV。
 
+#### 第 10 天模型一致性结果（2026-11-09）
+
+在 Kaggle 使用 Qwen3-0.6B、`cuda:0` 运行：
+
+```text
+1 passed, 24 deselected in 12.72s
+```
+
+`test_paged_reference_generation_matches_contiguous_runner` 通过，说明分页 Reference
+Path 与连续 Runner 的 greedy 生成 token 完全一致。分页 KV 的合成读写和资源回收测试
+仍需单独运行 `pytest -q tests/test_paged_kv_cache.py` 后补录。
+
 ### 第 11 天：不同 Block Size 实验
 
 测试 Block Size：8、16、32。
