@@ -38,6 +38,7 @@
 - [x] 在 Kaggle 通过第 8 天 Block Pool 测试（12 项）
 - [x] 第 9 天 Block Table 映射、边界扩容和生命周期回收实现
 - [x] 在 Kaggle 通过第 9 天随机 100 次请求回收验收（7 项）
+- [x] 第 10 天分页 KV Reference Path 实现（待 Kaggle 模型一致性验收）
 - [ ] 分页 KV Cache
 - [ ] 连续批处理
 - [ ] 前缀缓存
@@ -133,6 +134,7 @@ deepinfer-lite/
 ├─ deepinfer_lite/
 │  ├─ block_pool.py          # 第 8 天固定 Block 生命周期管理
 │  ├─ block_table.py         # 第 9 天逻辑 Block 到物理 Block 映射
+│  ├─ paged_kv_cache.py      # 第 10 天分页 KV 写入、读取和模型适配器
 │  ├─ model_runner.py       # Prefill/Decode Runner 与 KV Cache handle
 │  └─ README.md              # Runner、Block Pool 和 Block Table 接口说明
 ├─ examples/
@@ -141,7 +143,8 @@ deepinfer-lite/
 ├─ tests/
 │  ├─ test_kv_correctness.py # 第 5 天正确性测试
 │  ├─ test_block_pool.py     # 第 8 天 Block Pool 测试
-│  └─ test_block_table.py    # 第 9 天 Block Table 测试
+│  ├─ test_block_table.py    # 第 9 天 Block Table 测试
+│  └─ test_paged_kv_cache.py # 第 10 天分页 KV 读写测试
 ├─ reports/
 │  └─ day6_baseline/          # 第 6 天原始数据、汇总表和图表
 ├─ docs/
@@ -176,6 +179,24 @@ deepinfer-lite/
 必须恢复为 `free_count == 64`、`allocated_count == 0`、`allocation_count == 0`。
 
 最近一次 Kaggle 验收结果：`7 passed in 7.57s`（2026-11-08）。
+
+### 运行第 10 天分页 KV 测试
+
+分页 Reference Path 先在 PyTorch Tensor 上管理物理 Block：Prefill 将完整 KV 按 token
+写入 Block，Decode 将模型返回的完整 KV 的最后一个 token 写入尾 Block，模型下一轮
+前向前再按 Block Table gather 成连续 KV。该路径用于验证映射、读写和输出一致性，尚未
+实现 Attention Kernel 直接读取分页 Block。
+
+```python
+%env PYTHONPATH=/kaggle/working/deepinfer-lite
+%env DEEPINFER_MODEL_DIR=/kaggle/input/datasets/yhw1027/qwen3-0-6b-model/Qwen3-0.6B
+%env DEEPINFER_TEST_DEVICE=cuda:0
+!pytest -q tests/test_paged_kv_cache.py
+!pytest -q tests/test_kv_correctness.py -k paged_reference
+```
+
+模型一致性验收目标是分页路径和连续 Runner 的 greedy token 完全相同，并且请求释放后
+`free_count` 恢复到 Pool 初始容量。
 
 ### 运行第 6 天性能基线
 

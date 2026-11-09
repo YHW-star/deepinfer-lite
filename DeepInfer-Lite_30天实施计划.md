@@ -1086,13 +1086,46 @@ allocation_count == 0
 
 ### 第 10 天：分页 KV 写入
 
-任务：
+#### 实现内容
 
-- Prefill 按 Block 写入 KV；
-- Decode 追加 token 到当前 Block；
-- 实现从分页 KV 读取并还原连续 KV 的 reference path。
+新增 `deepinfer_lite/paged_kv_cache.py`，完成 PyTorch Tensor 上的分页 KV Reference Path：
 
-验收：分页实现与朴素连续 KV 输出一致。
+- `PagedKVStorage` 为每层分配 `[num_blocks, block_size, kv_heads, head_dim]` 的物理 KV
+  Block，所有请求共享同一个物理存储；
+- `PagedKVCache.from_contiguous()` 在 Prefill 后按 Block Table 将完整连续 KV 写入物理
+  Block，并检查层数、形状、dtype、设备和 batch size；
+- `append_from_contiguous()` 在 Decode 后只取完整 KV 的最后一个 token，追加到当前尾
+  Block；跨越边界时由 BlockTable 自动申请新 Block；
+- `to_contiguous()` 按逻辑 token 顺序读取 Block，gather 成 Transformers 使用的连续
+  `[1, kv_heads, sequence_length, head_dim]` KV；
+- `PagedModelRunner` 将现有 `ModelRunner` 接入该 Reference Path：每轮 Decode 前 gather
+  连续 KV，完成模型前向后再写回新增 token；
+- Prefill 写入异常、Decode KV 形状错误和 Block 不足均保持原状态或释放已申请资源；
+- 导出 `PagedKVCache`、`PagedKVStorage`、`PagedModelRunner` 及相关输出/异常类型。
+
+#### 测试覆盖
+
+新增 `tests/test_paged_kv_cache.py`，覆盖 3/4/8 Block Size 下的 Prefill 写入、跨边界
+读取、Decode 追加、非法 Decode 原子性、Prefill 申请失败无泄漏和释放回收。新增模型
+测试 `test_paged_reference_generation_matches_contiguous_runner`，用 Qwen3-0.6B 对比
+分页 Reference Path 与现有连续 Runner 的 greedy token。
+
+#### Kaggle 验收命令
+
+在仓库根目录执行：
+
+```python
+%env PYTHONPATH=/kaggle/working/deepinfer-lite
+%env DEEPINFER_MODEL_DIR=/kaggle/input/datasets/yhw1027/qwen3-0-6b-model/Qwen3-0.6B
+%env DEEPINFER_TEST_DEVICE=cuda:0
+!pytest -q tests/test_paged_kv_cache.py
+!pytest -q tests/test_kv_correctness.py -k paged_reference
+```
+
+验收标准：分页路径生成 token 与连续 Runner 完全一致；跨 Block 边界没有 token 丢失或
+重复；请求释放后 Pool 的 `free_count` 恢复初始值，`allocated_count` 和
+`allocation_count` 均为 0。该实现是 gather 型 Reference Path，不宣称 Attention Kernel
+已经直接读取分页 KV。
 
 ### 第 11 天：不同 Block Size 实验
 

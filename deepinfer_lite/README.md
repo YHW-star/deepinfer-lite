@@ -54,6 +54,19 @@ pytest -q tests/test_block_table.py
 测试包含 Block 边界扩容、初始长度分配、映射查询、空请求、释放后的访问保护、Pool
 不足时的原子性，以及固定随机种子的 100 次请求生命周期回收验收。
 
+## Paged KV Cache Reference Path
+
+`PagedKVStorage` 为每层分配形状为 `[num_blocks, block_size, kv_heads, head_dim]` 的
+物理 Tensor；`PagedKVCache` 使用 `BlockTable` 保存逻辑到物理映射。Prefill 通过
+`PagedKVCache.from_contiguous()` 将完整连续 KV 写入对应 Block，Decode 通过
+`append_from_contiguous()` 只追加完整结果中的最后一个 token；`to_contiguous()` 按逻辑
+顺序 gather 回 Transformers 可接受的连续 KV。
+
+`PagedModelRunner` 是模型对照适配器：每轮 Decode 前 gather 连续 KV，调用现有
+`ModelRunner.decode()`，再把返回 KV 的新增 token 写回分页存储。因此它验证分页管理和
+读写的正确性，不能代表 Attention Kernel 已经直接按 Block Table 读取，也不能据此宣称
+获得了 PagedAttention 性能收益。
+
 运行独立单元测试：
 
 ```python

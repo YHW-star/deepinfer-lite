@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 import torch
 
-from deepinfer_lite import KVCache, ModelRunner
+from deepinfer_lite import BlockPool, KVCache, ModelRunner, PagedModelRunner
 
 
 MODEL_DIR = Path(
@@ -143,6 +143,43 @@ def test_eos_stops_generation_immediately(runner: ModelRunner) -> None:
     assert actual.eos_reached
     assert actual.decode_calls == 0
     assert actual.kv_cache.sequence_length == input_ids.shape[1]
+
+
+def test_paged_reference_generation_matches_contiguous_runner(runner: ModelRunner) -> None:
+    """分页写回和连续 Reference Path 的 Greedy token 必须完全相同。"""
+    input_ids, attention_mask = make_input(runner, 37, 719)
+    max_new_tokens = 16
+    reference = runner.generate_greedy(
+        input_ids,
+        attention_mask=attention_mask,
+        max_new_tokens=max_new_tokens,
+    )
+
+    pool = BlockPool(num_blocks=64, block_size=8)
+    paged_runner = PagedModelRunner(runner, pool)
+    paged_prefill = paged_runner.prefill(input_ids, "paged-request", attention_mask)
+    next_token = paged_prefill.logits.argmax(dim=-1, keepdim=True)
+    paged_tokens = []
+    eos_token_id = getattr(runner.model.generation_config, "eos_token_id", None)
+    eos_ids = set(
+        eos_token_id if isinstance(eos_token_id, (list, tuple, set))
+        else ([] if eos_token_id is None else [eos_token_id])
+    )
+    cache = paged_prefill.kv_cache
+    for token_index in range(max_new_tokens):
+        paged_tokens.append(next_token)
+        if int(next_token.item()) in eos_ids or token_index + 1 == max_new_tokens:
+            break
+        decoded = paged_runner.decode(next_token, cache)
+        cache = decoded.kv_cache
+        next_token = decoded.logits.argmax(dim=-1, keepdim=True)
+
+    actual_tokens = torch.cat(paged_tokens, dim=1)
+    assert torch.equal(actual_tokens, reference.token_ids)
+    assert cache.sequence_length == input_ids.shape[1] + actual_tokens.shape[1] - 1
+    cache.release()
+    assert pool.free_count() == 64
+    assert pool.allocated_count() == 0
 
 
 @pytest.mark.parametrize("block_size", [8, 16, 32])

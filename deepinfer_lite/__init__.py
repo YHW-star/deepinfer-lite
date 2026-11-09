@@ -11,6 +11,14 @@ from .block_pool import (
     DuplicateAllocationError,
 )
 from .block_table import BlockTable, BlockTableError, BlockTableReleasedError, BlockTableSnapshot
+from .paged_kv_cache import (
+    PagedDecodeOutput,
+    PagedKVCache,
+    PagedKVCacheError,
+    PagedKVStorage,
+    PagedModelRunner,
+    PagedPrefillOutput,
+)
 
 __all__ = [
     "KVCache",
@@ -29,4 +37,10 @@ __all__ = [
     "BlockTableSnapshot",
     "BlockTableError",
     "BlockTableReleasedError",
+    "PagedKVCache",
+    "PagedKVStorage",
+    "PagedKVCacheError",
+    "PagedModelRunner",
+    "PagedPrefillOutput",
+    "PagedDecodeOutput",
 ]
