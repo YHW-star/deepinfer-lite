@@ -25,6 +25,18 @@ def _synthetic_past(sequence_length: int) -> tuple[tuple[torch.Tensor, torch.Ten
     return tuple(layers)
 
 
+def _append_synthetic_token(
+    past: tuple[tuple[torch.Tensor, torch.Tensor], ...],
+) -> tuple[tuple[torch.Tensor, torch.Tensor], ...]:
+    """保留已有 KV，仅构造并追加一个新的末尾 token。"""
+    layers = []
+    for layer_index, (key, value) in enumerate(past):
+        next_key = torch.full_like(key[:, :, :1, :], 100000 + layer_index)
+        next_value = torch.full_like(value[:, :, :1, :], 200000 + layer_index)
+        layers.append((torch.cat((key, next_key), dim=2), torch.cat((value, next_value), dim=2)))
+    return tuple(layers)
+
+
 def _assert_same(left: tuple[tuple[torch.Tensor, torch.Tensor], ...], right: tuple[tuple[torch.Tensor, torch.Tensor], ...]) -> None:
     assert len(left) == len(right)
     for (left_key, left_value), (right_key, right_value) in zip(left, right):
@@ -54,7 +66,7 @@ def test_decode_appends_only_new_token_and_preserves_previous_blocks() -> None:
     initial_length = 4
     full_length = initial_length + 1
     initial = _synthetic_past(initial_length)
-    decoded = _synthetic_past(full_length)
+    decoded = _append_synthetic_token(initial)
     pool = BlockPool(num_blocks=4, block_size=4)
     cache = PagedKVCache.from_contiguous(initial, pool, "request-a")
 
